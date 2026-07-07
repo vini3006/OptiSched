@@ -22,3 +22,13 @@ OptiSched is a backend platform designed to solve real-world optimization proble
 - [ ] Scheduling optimizer
 - [ ] API documentation
 - [ ] Unit tests
+
+## Documentation
+
+Project documentation is available in the `docs` directory.
+
+- Requirements
+- Business Rules
+- Domain Model
+- ER Diagram
+- Architecture
