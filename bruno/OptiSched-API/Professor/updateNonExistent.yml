@@ -1,0 +1,22 @@
+info:
+  name: updateNonExistent
+  type: http
+  seq: 8
+
+http:
+  method: PUT
+  url: localhost:8080/professors/999
+  body:
+    type: json
+    data: |-
+      {
+          "name": "Teste",
+          "email": "teste@cefet.br"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

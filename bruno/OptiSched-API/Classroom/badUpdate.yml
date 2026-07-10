@@ -1,0 +1,22 @@
+info:
+  name: badUpdate
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: localhost:8080/classrooms/1
+  body:
+    type: json
+    data: |-
+      {
+          "number": "A102",
+          "capacity": 45
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

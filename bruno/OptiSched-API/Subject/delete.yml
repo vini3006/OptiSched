@@ -1,0 +1,15 @@
+info:
+  name: delete
+  type: http
+  seq: 9
+
+http:
+  method: DELETE
+  url: localhost:8080/subjects/2
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

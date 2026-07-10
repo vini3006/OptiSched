@@ -1,0 +1,23 @@
+info:
+  name: create
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: localhost:8080/subjects
+  body:
+    type: json
+    data: |-
+      {
+          "name": "Álgebra Linear",
+          "code": "MAT102",
+          "workload": 4
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
