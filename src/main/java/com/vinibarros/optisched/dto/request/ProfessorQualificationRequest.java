@@ -1,9 +1,10 @@
 package com.vinibarros.optisched.dto.request;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public record ProfessorQualificationRequest(
-        @NotNull Long professorId,
-        @NotNull Long subjectId
-) {
-}
+        @NotNull @Positive Long professorId,
+        @NotNull @Positive Long subjectId
+)
+{}

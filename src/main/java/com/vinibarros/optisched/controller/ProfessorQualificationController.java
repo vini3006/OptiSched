@@ -27,18 +27,11 @@ public class ProfessorQualificationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProfessorQualificationResponse>> findAll(){
+    public ResponseEntity<List<ProfessorQualificationResponse>> findAll(@RequestParam(required = false) Long professorId, @RequestParam(required = false) Long subjectId){
+        if(professorId != null && subjectId != null) return ResponseEntity.ok(qualificationService.findByProfessorAndSubject(professorId, subjectId));
+        if(professorId != null) return ResponseEntity.ok(qualificationService.findByProfessor(professorId));
+        if(professorId != null) return ResponseEntity.ok(qualificationService.findBySubject(subjectId));
         return ResponseEntity.ok(qualificationService.findAll());
-    }
-
-    @GetMapping("/professors/{professorId}")
-    public ResponseEntity<List<ProfessorQualificationResponse>> findByProfessor(@PathVariable Long professorId){
-        return ResponseEntity.ok(qualificationService.findByProfessor(professorId));
-    }
-
-    @GetMapping("/subjects/{subjectId}")
-    public ResponseEntity<List<ProfessorQualificationResponse>> findBySubject(@PathVariable Long subjectId){
-        return ResponseEntity.ok(qualificationService.findBySubject(subjectId));
     }
 
     @DeleteMapping

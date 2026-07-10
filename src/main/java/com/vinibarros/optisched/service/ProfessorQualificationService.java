@@ -65,7 +65,7 @@ public class ProfessorQualificationService {
             throw new ResourceNotFoundException("Professor", professorId);
         }
 
-        return qualificationRepository.findByIdProfessorId(professorId)
+        return qualificationRepository.findByProfessorId(professorId)
                 .stream()
                 .map(qualificationMapper::toResponse)
                 .toList();
@@ -77,7 +77,22 @@ public class ProfessorQualificationService {
             throw new ResourceNotFoundException("Subject", subjectId);
         }
 
-        return qualificationRepository.findByIdSubjectId(subjectId)
+        return qualificationRepository.findBySubjectId(subjectId)
+                .stream()
+                .map(qualificationMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProfessorQualificationResponse> findByProfessorAndSubject(Long professorId, Long subjectId){
+        ProfessorQualificationId id = new ProfessorQualificationId(professorId, subjectId);
+        if (!qualificationRepository.existsById(id)) {
+            throw new ResourceNotFoundException(
+                    "ProfessorQualification not found for professorId=" + professorId + " and subjectId=" + subjectId
+            );
+        }
+
+        return qualificationRepository.findByProfessorIdAndSubjectId(professorId, subjectId)
                 .stream()
                 .map(qualificationMapper::toResponse)
                 .toList();
