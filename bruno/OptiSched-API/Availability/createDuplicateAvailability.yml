@@ -1,0 +1,22 @@
+info:
+  name: createDuplicateAvailability
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: localhost:8080/availabilities
+  body:
+    type: json
+    data: |-
+      {
+          "professorId": 5,
+          "timeSlotId": 1
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

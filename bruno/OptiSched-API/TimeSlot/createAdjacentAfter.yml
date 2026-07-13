@@ -1,0 +1,23 @@
+info:
+  name: createAdjacentAfter
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: localhost:8080/time-slots
+  body:
+    type: json
+    data: |-
+      {
+          "dayOfWeek": "MONDAY",
+          "startTime": "10:00",
+          "endTime": "12:00"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

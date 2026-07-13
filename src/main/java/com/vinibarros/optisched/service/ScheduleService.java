@@ -69,6 +69,12 @@ public class ScheduleService {
         if(schedule.getStatus() == ScheduleStatus.ACTIVE){
             schedule.setStatus(ScheduleStatus.INACTIVE);
         } else {
+            Schedule active = scheduleRepository.findBySemesterIdAndStatus(schedule.getSemester().getId(), ScheduleStatus.ACTIVE);
+
+            if(active != null){
+                active.setStatus(ScheduleStatus.INACTIVE);
+            }
+
             schedule.setStatus(ScheduleStatus.ACTIVE);
         }
 

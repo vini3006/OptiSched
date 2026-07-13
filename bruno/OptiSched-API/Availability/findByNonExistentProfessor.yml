@@ -1,0 +1,19 @@
+info:
+  name: findByNonExistentProfessor
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: localhost:8080/availabilities?professorId=999
+  params:
+    - name: professorId
+      value: "999"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
