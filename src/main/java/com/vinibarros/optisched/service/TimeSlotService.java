@@ -3,10 +3,7 @@ package com.vinibarros.optisched.service;
 import com.vinibarros.optisched.dto.request.TimeSlotRequest;
 import com.vinibarros.optisched.dto.response.TimeSlotResponse;
 import com.vinibarros.optisched.entity.TimeSlot;
-import com.vinibarros.optisched.exception.DuplicateResourceException;
-import com.vinibarros.optisched.exception.InvalidTimeSlotException;
-import com.vinibarros.optisched.exception.ResourceInUseException;
-import com.vinibarros.optisched.exception.ResourceNotFoundException;
+import com.vinibarros.optisched.exception.*;
 import com.vinibarros.optisched.mapper.TimeSlotMapper;
 import com.vinibarros.optisched.repository.TimeSlotRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +32,10 @@ public class TimeSlotService {
 
         if(timeSlotRepository.existsByDayOfWeekAndStartTimeAndEndTime(request.dayOfWeek(), request.startTime(), request.endTime())){
             throw new DuplicateResourceException("TimeSlot already exists for day of week: " + request.dayOfWeek() + ", startTime: " + request.startTime() + " and EndTime: " + request.endTime());
+        }
+
+        if(timeSlotRepository.existsOverlappingTimeSlot(request.startTime(), request.endTime())){
+            throw new OverlappingTimeSlotException("TimeSlot overlaps with an existing time range: " + request.startTime() + "-" + request.endTime());
         }
 
         TimeSlot timeSlot = timeSlotMapper.toEntity(request);

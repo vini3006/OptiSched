@@ -1,0 +1,19 @@
+info:
+  name: findByCourse
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: localhost:8080/subject-offerings?courseId=2
+  params:
+    - name: courseId
+      value: "2"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

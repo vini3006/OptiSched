@@ -5,13 +5,17 @@ info:
 
 http:
   method: POST
-  url: localhost:8080/semesters
+  url: localhost:8080/subject-offerings
   body:
     type: json
     data: |-
       {
-          "year": 1999,
-          "term": null
+          "courseId": null,
+          "subjectId": null,
+          "semesterId": null,
+          "section": "",
+          "expectedStudents": 0,
+          "recommendedSemester": -1
       }
   auth: inherit
 

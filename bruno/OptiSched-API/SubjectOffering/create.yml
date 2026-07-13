@@ -5,14 +5,17 @@ info:
 
 http:
   method: POST
-  url: localhost:8080/subjects
+  url: localhost:8080/subject-offerings
   body:
     type: json
     data: |-
       {
-          "name": "Introdução à programação",
-          "code": "GCOM101",
-          "workload": 4
+          "courseId": 2,
+          "subjectId": 4,
+          "semesterId": 2,
+          "section": "A",
+          "expectedStudents": 40,
+          "recommendedSemester": 1
       }
   auth: inherit
 

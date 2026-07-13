@@ -1,18 +1,11 @@
 info:
-  name: createWithInvalidParams
+  name: findAll
   type: http
-  seq: 2
+  seq: 3
 
 http:
-  method: POST
+  method: GET
   url: localhost:8080/semesters
-  body:
-    type: json
-    data: |-
-      {
-          "year": 1999,
-          "term": null
-      }
   auth: inherit
 
 settings:

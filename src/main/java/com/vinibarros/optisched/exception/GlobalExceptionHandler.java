@@ -59,6 +59,11 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(OverlappingTimeSlotException.class)
+    public ResponseEntity<Map<String, Object>> handleOverlappingTimeSlot(OverlappingTimeSlotException ex){
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         ex.printStackTrace();

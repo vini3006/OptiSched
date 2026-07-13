@@ -1,18 +1,17 @@
 info:
-  name: create
+  name: updateNonExistentSemester
   type: http
-  seq: 1
+  seq: 7
 
 http:
-  method: POST
-  url: localhost:8080/subjects
+  method: PUT
+  url: localhost:8080/semesters/999
   body:
     type: json
     data: |-
       {
-          "name": "Introdução à programação",
-          "code": "GCOM101",
-          "workload": 4
+          "year": 2026,
+          "term": "SECOND"
       }
   auth: inherit
 
