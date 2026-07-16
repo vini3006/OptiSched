@@ -318,7 +318,7 @@ Since the soft constraints depend on temporal structure (day grouping and slot o
 - \(f_{pd}, l_{pd} \ge 0\): First and last occupied slot position for professor \(p\) on day \(d\).
 - \(w_{pd} \in {0,1}\): Indicates whether professor \(p\) has at least one lecture on day \(d\).
 - \(g_{pt} \in {0,1}\), for \(t\) such that \(\text{next}(t)\) exists: Indicates a back-to-back lecture pair for professor \(p\) between \(t\) and \(\text{next}(t)\).
-- \(v_{od} \in {0,1}\): Number of lectures of offering \(o\) scheduled on day \(d\), in excess of one.
+- \(v_{od} \in \Z_{\ge 0}\): Number of lectures of offering \(o\) scheduled on day \(d\), in excess of one.
 - \(u_{or} \in {0,1}\): Indicates whether offering \(o\) uses classroom \(r\) at least once during the week.
 
 ---

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from models import OptimizationRequest
+from validation import *
+from enums import DayOfWeek     
 
 
 # ==========================================================
@@ -33,7 +35,7 @@ class SolverData:
     #     2: [5,6,7,8],
     #     ...
     # }
-    time_slots_by_day: dict[int, list[int]]
+    time_slots_by_day: dict[DayOfWeek, list[int]]
 
     # Position of each TimeSlot inside its day.
     # Example:
@@ -45,6 +47,15 @@ class SolverData:
     # }
     slot_position: dict[int, int]
 
+    # Day of week of each TimeSlot.
+    # Example:
+    # {
+    #     1:MONDAY,
+    #     2:TUESDAY,
+    #     3:WEDNESDAY,
+    #     ...
+    # }
+    slot_day: dict[int, DayOfWeek]
 
     # -------------------------
     # Parameters
@@ -215,9 +226,11 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
 
         time_slots_by_day[day].sort(key=lambda slot: slot.start_time)
 
-    slot_position = {}
+    slot_position: dict[int, int] = {}
 
-    grouped_slots = {}
+    slot_day: dict[int, DayOfWeek] = {}
+
+    grouped_slots: dict[DayOfWeek, list[int]] = {}
 
     for day, slots in time_slots_by_day.items():
 
@@ -227,8 +240,16 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
 
             grouped_slots[day].append(slot.id)
 
-            slot_position[slot.id] = position
+            slot_position[slot.id] = position + 1
 
+            slot_day[slot.id] = day
+
+    # ======================================================
+    # Validations
+    # =====================================================
+
+    validate_professor_coverage(subject_offerings = request.subject_offerings, valid_qualifications = valid_qualifications)
+    validate_classroom_capacity(subject_offerings = request.subject_offerings, classrooms = request.classrooms)
 
     # ======================================================
     # Return SolverData

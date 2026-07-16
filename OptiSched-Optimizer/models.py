@@ -1,5 +1,6 @@
 from datetime import time
 from pydantic import BaseModel
+from enums import DayOfWeek
 
 # =========================
 # Input DTOs
@@ -25,7 +26,7 @@ class Classroom(BaseModel):
 
 class TimeSlot(BaseModel):
     id: int
-    day_of_week: int
+    day_of_week: DayOfWeek
     start_time: time
     end_time: time
 
