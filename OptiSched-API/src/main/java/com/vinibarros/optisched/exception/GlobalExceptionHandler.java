@@ -64,6 +64,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidScheduleException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidSchedule(InvalidScheduleException ex) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         ex.printStackTrace();
