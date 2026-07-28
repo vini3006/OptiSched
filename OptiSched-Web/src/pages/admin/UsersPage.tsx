@@ -46,6 +46,7 @@ import {
   type CreateUserFormValues,
 } from "@/lib/validations/user-schema";
 import { useAuth } from "@/hooks/UseAuth";
+import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import type { ManagedUser } from "@/types/User";
 
@@ -98,7 +99,9 @@ export function UsersPage() {
       </div>
 
       <div className="mt-6">
-        {institutionId ? (
+        {isSuperAdmin ? (
+          <UsersGroupedByInstitution />
+        ) : institutionId ? (
           <UsersTable institutionId={institutionId} isSuperAdmin={isSuperAdmin} />
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -169,6 +172,144 @@ export function UsersPage() {
           />
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function UsersGroupedByInstitution() {
+  const queryClient = useQueryClient();
+  const { institutions, itemsByInstitution: usersByInstitution, isLoading } =
+    useGroupedByInstitution("users", listUsers);
+
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ userId, institutionId }: { userId: number; institutionId: number }) =>
+      deleteUser(userId, institutionId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["users", variables.institutionId] });
+      setDeletingUser(null);
+    },
+  });
+
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+  const viewingUsers =
+    viewingInstitutionId !== null ? (usersByInstitution.get(viewingInstitutionId) ?? []) : [];
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Usuários</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = usersByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "usuário" : "usuários"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver usuários
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col">
+          <DialogHeader>
+            <DialogTitle>Usuários de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Todos os usuários dessa instituição.</DialogDescription>
+          </DialogHeader>
+          {viewingUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum usuário nessa instituição.</p>
+          ) : (
+            <ul className="flex flex-col gap-2 overflow-y-auto">
+              {viewingUsers.map((user) => (
+                <li
+                  key={user.id}
+                  className="flex items-center justify-between rounded-lg bg-secondary p-2 pl-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{user.role}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeletingUser(user)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. O usuário "{deletingUser?.name}" perderá o
+              acesso imediatamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deletingUser &&
+                viewingInstitutionId !== null &&
+                deleteMutation.mutate({ userId: deletingUser.id, institutionId: viewingInstitutionId })
+              }
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

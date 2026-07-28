@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -50,8 +50,10 @@ import {
 import { createTimeSlot, deleteTimeSlot, listTimeSlots } from "@/api/time-slots";
 import { classroomSchema, type ClassroomFormValues } from "@/lib/validations/classroom-schema";
 import { timeSlotSchema, type TimeSlotFormValues } from "@/lib/validations/time-slot-schema";
+import { useAuth } from "@/hooks/UseAuth";
+import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
-import { DAY_OF_WEEK_LABELS } from "@/lib/enum-labels";
+import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
 import type { Classroom } from "@/types/Classroom";
 import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
 
@@ -108,13 +110,16 @@ function TimeSelect({
 }
 
 export function InfrastructurePage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
     <div>
       <h1 className="text-xl font-semibold text-primary">Infraestrutura</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie as salas e a grade de horários possíveis da instituição selecionada.
+        Gerencie as salas e a grade de horários possíveis
+        {isSuperAdmin ? " de cada instituição." : " da instituição selecionada."}
       </p>
 
       <Tabs defaultValue="salas" className="mt-6">
@@ -124,7 +129,9 @@ export function InfrastructurePage() {
         </TabsList>
 
         <TabsContent value="salas" className="mt-4">
-          {selectedInstitutionId ? (
+          {isSuperAdmin ? (
+            <ClassroomsGroupedByInstitution />
+          ) : selectedInstitutionId ? (
             <ClassroomsTab institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver as salas." />
@@ -132,8 +139,10 @@ export function InfrastructurePage() {
         </TabsContent>
 
         <TabsContent value="horarios" className="mt-4">
-          {selectedInstitutionId ? (
-            <TimeSlotsTab institutionId={selectedInstitutionId} />
+          {isSuperAdmin ? (
+            <TimeSlotsGroupedByInstitution />
+          ) : selectedInstitutionId ? (
+            <TimeSlotsGroupedByDay institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver os horários." />
           )}
@@ -146,6 +155,82 @@ export function InfrastructurePage() {
 // ---------------------------------------------------------------------------
 // Salas
 // ---------------------------------------------------------------------------
+
+function ClassroomsGroupedByInstitution() {
+  const { institutions, itemsByInstitution: classroomsByInstitution, isLoading } =
+    useGroupedByInstitution("classrooms", listClassrooms);
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Salas</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = classroomsByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "sala" : "salas"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver salas
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Salas de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Gerencie as salas dessa instituição.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && (
+              <ClassroomsTab institutionId={viewingInstitutionId} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function ClassroomsTab({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
@@ -351,7 +436,156 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
 // Horários
 // ---------------------------------------------------------------------------
 
-function TimeSlotsTab({ institutionId }: { institutionId: number }) {
+function TimeSlotsGroupedByInstitution() {
+  const { institutions, isLoading } = useGroupedByInstitution("time-slots", listTimeSlots);
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => (
+              <TableRow key={institution.id}>
+                <TableCell className="font-medium">{institution.name}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewingInstitutionId(institution.id)}
+                  >
+                    Ver horários
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Horários de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Horários agrupados por dia da semana.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && (
+              <TimeSlotsGroupedByDay institutionId={viewingInstitutionId} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
+  const { data: timeSlots, isLoading } = useQuery({
+    queryKey: ["time-slots", institutionId],
+    queryFn: () => listTimeSlots(institutionId),
+  });
+
+  const [viewingDay, setViewingDay] = useState<DayOfWeek | null>(null);
+
+  const daysPresent = DAY_OF_WEEK_ORDER.filter((day) =>
+    (timeSlots ?? []).some((t) => t.dayOfWeek === day)
+  );
+
+  if (viewingDay !== null) {
+    return (
+      <div>
+        <div className="mb-4 flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" onClick={() => setViewingDay(null)}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <span className="text-sm font-medium text-foreground">
+            Horários de {DAY_OF_WEEK_LABELS[viewingDay]}
+          </span>
+        </div>
+        <TimeSlotsTab institutionId={institutionId} dayFilter={viewingDay} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-elevated rounded-2xl">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Dia da semana</TableHead>
+            <TableHead>Horários</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading && (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center text-muted-foreground">
+                Carregando...
+              </TableCell>
+            </TableRow>
+          )}
+          {!isLoading && daysPresent.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center text-muted-foreground">
+                Nenhum horário cadastrado.
+              </TableCell>
+            </TableRow>
+          )}
+          {daysPresent.map((day) => {
+            const count = (timeSlots ?? []).filter((t) => t.dayOfWeek === day).length;
+            return (
+              <TableRow key={day}>
+                <TableCell className="font-medium">{DAY_OF_WEEK_LABELS[day]}</TableCell>
+                <TableCell>
+                  {count} {count === 1 ? "horário" : "horários"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="outline" size="sm" onClick={() => setViewingDay(day)}>
+                    Ver horários
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function TimeSlotsTab({
+  institutionId,
+  dayFilter,
+}: {
+  institutionId: number;
+  dayFilter?: DayOfWeek;
+}) {
   const queryClient = useQueryClient();
   const queryKey = ["time-slots", institutionId] as const;
 
@@ -397,7 +631,7 @@ function TimeSlotsTab({ institutionId }: { institutionId: number }) {
 
   function openCreate() {
     setFormError(null);
-    reset({ dayOfWeek: "MONDAY", startTime: "", endTime: "" });
+    reset({ dayOfWeek: dayFilter ?? "MONDAY", startTime: "", endTime: "" });
     setDialogOpen(true);
   }
 
@@ -414,12 +648,14 @@ function TimeSlotsTab({ institutionId }: { institutionId: number }) {
     }
   }
 
-  const sortedTimeSlots = [...(timeSlots ?? [])].sort((a, b) => {
-    if (a.dayOfWeek !== b.dayOfWeek) {
-      return a.dayOfWeek.localeCompare(b.dayOfWeek);
-    }
-    return a.startTime.localeCompare(b.startTime);
-  });
+  const sortedTimeSlots = (timeSlots ?? [])
+    .filter((timeSlot) => dayFilter === undefined || timeSlot.dayOfWeek === dayFilter)
+    .sort((a, b) => {
+      if (a.dayOfWeek !== b.dayOfWeek) {
+        return a.dayOfWeek.localeCompare(b.dayOfWeek);
+      }
+      return a.startTime.localeCompare(b.startTime);
+    });
 
   return (
     <div>

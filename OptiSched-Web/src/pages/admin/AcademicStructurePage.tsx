@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -62,6 +62,8 @@ import {
   subjectOfferingSchema,
   type SubjectOfferingFormValues,
 } from "@/lib/validations/subject-offering-schema";
+import { useAuth } from "@/hooks/UseAuth";
+import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import { TERM_LABELS } from "@/lib/enum-labels";
 import type { Course } from "@/types/Course";
@@ -74,14 +76,16 @@ function EmptyInstitutionNotice({ text }: { text: string }) {
 }
 
 export function AcademicStructurePage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
     <div>
       <h1 className="text-xl font-semibold text-primary">Estrutura Acadêmica</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie cursos, disciplinas, semestres e as ofertas de disciplina da instituição
-        selecionada.
+        Gerencie cursos, disciplinas, semestres e as ofertas de disciplina
+        {isSuperAdmin ? " de cada instituição." : " da instituição selecionada."}
       </p>
 
       <Tabs defaultValue="cursos" className="mt-6">
@@ -93,7 +97,9 @@ export function AcademicStructurePage() {
         </TabsList>
 
         <TabsContent value="cursos" className="mt-4">
-          {selectedInstitutionId ? (
+          {isSuperAdmin ? (
+            <CoursesGroupedByInstitution />
+          ) : selectedInstitutionId ? (
             <CoursesTab institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver os cursos." />
@@ -101,7 +107,9 @@ export function AcademicStructurePage() {
         </TabsContent>
 
         <TabsContent value="disciplinas" className="mt-4">
-          {selectedInstitutionId ? (
+          {isSuperAdmin ? (
+            <SubjectsGroupedByInstitution />
+          ) : selectedInstitutionId ? (
             <SubjectsTab institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver as disciplinas." />
@@ -109,7 +117,9 @@ export function AcademicStructurePage() {
         </TabsContent>
 
         <TabsContent value="semestres" className="mt-4">
-          {selectedInstitutionId ? (
+          {isSuperAdmin ? (
+            <SemestersGroupedByInstitution />
+          ) : selectedInstitutionId ? (
             <SemestersTab institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver os semestres." />
@@ -117,8 +127,10 @@ export function AcademicStructurePage() {
         </TabsContent>
 
         <TabsContent value="ofertas" className="mt-4">
-          {selectedInstitutionId ? (
-            <SubjectOfferingsTab institutionId={selectedInstitutionId} />
+          {isSuperAdmin ? (
+            <OfferingsGroupedByInstitution />
+          ) : selectedInstitutionId ? (
+            <OfferingsGroupedByCourse institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver as ofertas de disciplina." />
           )}
@@ -131,6 +143,80 @@ export function AcademicStructurePage() {
 // ---------------------------------------------------------------------------
 // Cursos
 // ---------------------------------------------------------------------------
+
+function CoursesGroupedByInstitution() {
+  const { institutions, itemsByInstitution: coursesByInstitution, isLoading } =
+    useGroupedByInstitution("courses", listCourses);
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Cursos</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = coursesByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "curso" : "cursos"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver cursos
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cursos de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Gerencie os cursos dessa instituição.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && <CoursesTab institutionId={viewingInstitutionId} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function CoursesTab({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
@@ -331,6 +417,80 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 // Disciplinas
 // ---------------------------------------------------------------------------
+
+function SubjectsGroupedByInstitution() {
+  const { institutions, itemsByInstitution: subjectsByInstitution, isLoading } =
+    useGroupedByInstitution("subjects", listSubjects);
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Disciplinas</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = subjectsByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "disciplina" : "disciplinas"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver disciplinas
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Disciplinas de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Gerencie as disciplinas dessa instituição.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && <SubjectsTab institutionId={viewingInstitutionId} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function SubjectsTab({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
@@ -540,6 +700,82 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 // Semestres
 // ---------------------------------------------------------------------------
+
+function SemestersGroupedByInstitution() {
+  const { institutions, itemsByInstitution: semestersByInstitution, isLoading } =
+    useGroupedByInstitution("semesters", listSemesters);
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Semestres</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = semestersByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "semestre" : "semestres"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver semestres
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Semestres de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Gerencie os semestres dessa instituição.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && (
+              <SemestersTab institutionId={viewingInstitutionId} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function SemestersTab({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
@@ -758,7 +994,165 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
 // Ofertas de disciplina
 // ---------------------------------------------------------------------------
 
-function SubjectOfferingsTab({ institutionId }: { institutionId: number }) {
+function OfferingsGroupedByInstitution() {
+  const { institutions, isLoading } = useGroupedByInstitution(
+    "subject-offerings",
+    listSubjectOfferings
+  );
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => (
+              <TableRow key={institution.id}>
+                <TableCell className="font-medium">{institution.name}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewingInstitutionId(institution.id)}
+                  >
+                    Ver ofertas
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Ofertas de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Ofertas de disciplina agrupadas por curso.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            {viewingInstitutionId !== null && (
+              <OfferingsGroupedByCourse institutionId={viewingInstitutionId} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function OfferingsGroupedByCourse({ institutionId }: { institutionId: number }) {
+  const { data: courses, isLoading: coursesLoading } = useQuery({
+    queryKey: ["courses", institutionId],
+    queryFn: () => listCourses(institutionId),
+  });
+  const { data: offerings, isLoading: offeringsLoading } = useQuery({
+    queryKey: ["subject-offerings", institutionId],
+    queryFn: () => listSubjectOfferings(institutionId),
+  });
+
+  const [viewingCourseId, setViewingCourseId] = useState<number | null>(null);
+  const isLoading = coursesLoading || offeringsLoading;
+  const viewingCourse = courses?.find((c) => c.id === viewingCourseId) ?? null;
+
+  if (viewingCourseId !== null) {
+    return (
+      <div>
+        <div className="mb-4 flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" onClick={() => setViewingCourseId(null)}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <span className="text-sm font-medium text-foreground">
+            Ofertas de {viewingCourse?.name}
+          </span>
+        </div>
+        <SubjectOfferingsTab institutionId={institutionId} courseFilter={viewingCourseId} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-elevated rounded-2xl">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Curso</TableHead>
+            <TableHead>Ofertas</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading && (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center text-muted-foreground">
+                Carregando...
+              </TableCell>
+            </TableRow>
+          )}
+          {!isLoading && courses?.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center text-muted-foreground">
+                Nenhum curso cadastrado.
+              </TableCell>
+            </TableRow>
+          )}
+          {courses?.map((course) => {
+            const count = (offerings ?? []).filter((o) => o.courseId === course.id).length;
+            return (
+              <TableRow key={course.id}>
+                <TableCell className="font-medium">{course.name}</TableCell>
+                <TableCell>
+                  {count} {count === 1 ? "oferta" : "ofertas"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewingCourseId(course.id)}
+                  >
+                    Ver ofertas
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function SubjectOfferingsTab({
+  institutionId,
+  courseFilter,
+}: {
+  institutionId: number;
+  courseFilter?: number;
+}) {
   const queryClient = useQueryClient();
   const queryKey = ["subject-offerings", institutionId] as const;
 
@@ -837,7 +1231,7 @@ function SubjectOfferingsTab({ institutionId }: { institutionId: number }) {
     setEditing(null);
     setFormError(null);
     reset({
-      courseId: 0,
+      courseId: courseFilter ?? 0,
       subjectId: 0,
       semesterId: 0,
       section: "",
@@ -892,6 +1286,11 @@ function SubjectOfferingsTab({ institutionId }: { institutionId: number }) {
     return semester ? `${semester.year} - ${TERM_LABELS[semester.term]}` : `#${id}`;
   }
 
+  const filteredOfferings =
+    courseFilter !== undefined
+      ? (offerings ?? []).filter((o) => o.courseId === courseFilter)
+      : offerings;
+
   return (
     <div>
       <div className="flex justify-end">
@@ -922,14 +1321,14 @@ function SubjectOfferingsTab({ institutionId }: { institutionId: number }) {
                 </TableCell>
               </TableRow>
             )}
-            {!isLoading && offerings?.length === 0 && (
+            {!isLoading && filteredOfferings?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Nenhuma oferta cadastrada.
                 </TableCell>
               </TableRow>
             )}
-            {offerings?.map((offering) => (
+            {filteredOfferings?.map((offering) => (
               <TableRow key={offering.id}>
                 <TableCell className="font-medium">{courseName(offering.courseId)}</TableCell>
                 <TableCell>{subjectName(offering.subjectId)}</TableCell>

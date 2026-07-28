@@ -64,6 +64,7 @@ import {
   type AvailabilityFormValues,
 } from "@/lib/validations/availability-schema";
 import { useAuth } from "@/hooks/UseAuth";
+import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
 import type { Professor } from "@/types/Professor";
@@ -75,6 +76,8 @@ function EmptyInstitutionNotice({ text }: { text: string }) {
 }
 
 export function ProfessorsPage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
@@ -92,7 +95,9 @@ export function ProfessorsPage() {
         </TabsList>
 
         <TabsContent value="professores" className="mt-4">
-          {selectedInstitutionId ? (
+          {isSuperAdmin ? (
+            <ProfessorsGroupedByInstitution />
+          ) : selectedInstitutionId ? (
             <ProfessorsTab institutionId={selectedInstitutionId} />
           ) : (
             <EmptyInstitutionNotice text="Selecione uma instituição para ver os professores." />
@@ -122,6 +127,227 @@ export function ProfessorsPage() {
 // ---------------------------------------------------------------------------
 // Professores
 // ---------------------------------------------------------------------------
+
+function ProfessorsGroupedByInstitution() {
+  const queryClient = useQueryClient();
+  const {
+    institutions,
+    itemsByInstitution: professorsByInstitution,
+    isLoading,
+  } = useGroupedByInstitution("professors", listProfessors);
+
+  const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Professor | null>(null);
+  const [deleting, setDeleting] = useState<Professor | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProfessorFormValues>({
+    resolver: zodResolver(professorSchema),
+    defaultValues: { name: "" },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+      institutionId,
+    }: {
+      id: number;
+      input: ProfessorFormValues;
+      institutionId: number;
+    }) => updateProfessor(id, input, institutionId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["professors", variables.institutionId] });
+      closeEditDialog();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, institutionId }: { id: number; institutionId: number }) =>
+      deleteProfessor(id, institutionId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["professors", variables.institutionId] });
+      setDeleting(null);
+    },
+  });
+
+  function openEdit(professor: Professor) {
+    setEditing(professor);
+    setFormError(null);
+    reset({ name: professor.name });
+    setEditDialogOpen(true);
+  }
+
+  function closeEditDialog() {
+    setEditDialogOpen(false);
+    setEditing(null);
+  }
+
+  async function onSubmit(values: ProfessorFormValues) {
+    if (!editing || viewingInstitutionId === null) return;
+    setFormError(null);
+    try {
+      await updateMutation.mutateAsync({
+        id: editing.id,
+        input: values,
+        institutionId: viewingInstitutionId,
+      });
+    } catch {
+      setFormError("Não foi possível salvar o professor. Tente novamente.");
+    }
+  }
+
+  const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
+  const viewingProfessors =
+    viewingInstitutionId !== null ? (professorsByInstitution.get(viewingInstitutionId) ?? []) : [];
+
+  return (
+    <div>
+      <div className="card-elevated rounded-2xl">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instituição</TableHead>
+              <TableHead>Professores</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && institutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  Nenhuma instituição cadastrada.
+                </TableCell>
+              </TableRow>
+            )}
+            {institutions.map((institution) => {
+              const count = professorsByInstitution.get(institution.id)?.length ?? 0;
+              return (
+                <TableRow key={institution.id}>
+                  <TableCell className="font-medium">{institution.name}</TableCell>
+                  <TableCell>
+                    {count} {count === 1 ? "professor" : "professores"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingInstitutionId(institution.id)}
+                    >
+                      Ver professores
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={viewingInstitutionId !== null}
+        onOpenChange={(open) => !open && setViewingInstitutionId(null)}
+      >
+        <DialogContent className="flex max-h-[85vh] flex-col">
+          <DialogHeader>
+            <DialogTitle>Professores de {viewingInstitution?.name}</DialogTitle>
+            <DialogDescription>Todos os professores dessa instituição.</DialogDescription>
+          </DialogHeader>
+          {viewingProfessors.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum professor cadastrado.</p>
+          ) : (
+            <ul className="flex flex-col gap-2 overflow-y-auto">
+              {viewingProfessors.map((professor) => (
+                <li
+                  key={professor.id}
+                  className="flex items-center justify-between rounded-lg bg-secondary p-2 pl-3"
+                >
+                  <span className="text-sm">{professor.name}</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(professor)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeleting(professor)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar professor</DialogTitle>
+            <DialogDescription>Atualize o nome do professor.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <FieldGroup>
+              <Field data-invalid={!!errors.name}>
+                <FieldLabel htmlFor="professor-name-grouped">Nome</FieldLabel>
+                <Input id="professor-name-grouped" {...register("name")} />
+                <FieldError errors={[errors.name]} />
+              </Field>
+              {formError && (
+                <p role="alert" className="text-sm font-medium text-destructive">
+                  {formError}
+                </p>
+              )}
+              <Button type="submit" disabled={updateMutation.isPending} className="btn-gold">
+                {updateMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </FieldGroup>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir professor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. O professor "{deleting?.name}" perderá o acesso
+              e será removido permanentemente, junto com suas qualificações e disponibilidade.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deleting &&
+                viewingInstitutionId !== null &&
+                deleteMutation.mutate({ id: deleting.id, institutionId: viewingInstitutionId })
+              }
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
 
 function ProfessorsTab({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
