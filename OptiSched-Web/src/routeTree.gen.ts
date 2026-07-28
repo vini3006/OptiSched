@@ -15,8 +15,10 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
+import { Route as AdminGradesRouteImport } from './routes/admin.grades'
 import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraestrutura'
 import { Route as AdminInstituicoesRouteImport } from './routes/admin.instituicoes'
+import { Route as AdminProfessoresRouteImport } from './routes/admin.professores'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 
 const IndexRoute = IndexRouteImport.update({
@@ -49,6 +51,11 @@ const AdminEstruturaAcademicaRoute = AdminEstruturaAcademicaRouteImport.update({
   path: '/estrutura-academica',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminGradesRoute = AdminGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminInfraestruturaRoute = AdminInfraestruturaRouteImport.update({
   id: '/infraestrutura',
   path: '/infraestrutura',
@@ -57,6 +64,11 @@ const AdminInfraestruturaRoute = AdminInfraestruturaRouteImport.update({
 const AdminInstituicoesRoute = AdminInstituicoesRouteImport.update({
   id: '/instituicoes',
   path: '/instituicoes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProfessoresRoute = AdminProfessoresRouteImport.update({
+  id: '/professores',
+  path: '/professores',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
@@ -71,8 +83,10 @@ export interface FileRoutesByFullPath {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
+  '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -81,8 +95,10 @@ export interface FileRoutesByTo {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
+  '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -93,8 +109,10 @@ export interface FileRoutesById {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
+  '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -106,8 +124,10 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/instituicoes'
+    | '/admin/professores'
     | '/admin/usuarios'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -116,8 +136,10 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/instituicoes'
+    | '/admin/professores'
     | '/admin/usuarios'
     | '/admin'
   id:
@@ -127,8 +149,10 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/instituicoes'
+    | '/admin/professores'
     | '/admin/usuarios'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -184,6 +208,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEstruturaAcademicaRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/grades': {
+      id: '/admin/grades'
+      path: '/grades'
+      fullPath: '/admin/grades'
+      preLoaderRoute: typeof AdminGradesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/infraestrutura': {
       id: '/admin/infraestrutura'
       path: '/infraestrutura'
@@ -198,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInstituicoesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/professores': {
+      id: '/admin/professores'
+      path: '/professores'
+      fullPath: '/admin/professores'
+      preLoaderRoute: typeof AdminProfessoresRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/usuarios': {
       id: '/admin/usuarios'
       path: '/usuarios'
@@ -210,16 +248,20 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminEstruturaAcademicaRoute: typeof AdminEstruturaAcademicaRoute
+  AdminGradesRoute: typeof AdminGradesRoute
   AdminInfraestruturaRoute: typeof AdminInfraestruturaRoute
   AdminInstituicoesRoute: typeof AdminInstituicoesRoute
+  AdminProfessoresRoute: typeof AdminProfessoresRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminEstruturaAcademicaRoute: AdminEstruturaAcademicaRoute,
+  AdminGradesRoute: AdminGradesRoute,
   AdminInfraestruturaRoute: AdminInfraestruturaRoute,
   AdminInstituicoesRoute: AdminInstituicoesRoute,
+  AdminProfessoresRoute: AdminProfessoresRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

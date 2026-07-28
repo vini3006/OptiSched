@@ -10,6 +10,8 @@ const adminNavLinks = [
   { to: "/admin/usuarios", label: "Usuários" },
   { to: "/admin/estrutura-academica", label: "Estrutura Acadêmica" },
   { to: "/admin/infraestrutura", label: "Infraestrutura" },
+  { to: "/admin/professores", label: "Professores" },
+  { to: "/admin/grades", label: "Grades" },
 ];
 
 export function SuperAdminNavBar() {

@@ -13,8 +13,13 @@ public class ScheduleEntryMapper {
                 scheduleEntry.getSchedule().getId(),
 
                 scheduleEntry.getSubjectOffering().getId(),
+                scheduleEntry.getSubjectOffering().getSubject().getId(),
                 scheduleEntry.getSubjectOffering().getSubject().getName(),
                 scheduleEntry.getSubjectOffering().getSection(),
+
+                scheduleEntry.getSubjectOffering().getCourse().getId(),
+                scheduleEntry.getSubjectOffering().getCourse().getName(),
+                scheduleEntry.getSubjectOffering().getRecommendedSemester(),
 
                 scheduleEntry.getProfessor().getId(),
                 scheduleEntry.getProfessor().getName(),

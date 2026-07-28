@@ -102,6 +102,7 @@ public class ScheduleGenerationService {
             entry.setSubjectOffering(subjectOfferingRepository.getReferenceById(output.subjectOfferingId()));
             entry.setClassroom(classroomRepository.getReferenceById(output.classroomId()));
             entry.setTimeSlot(timeSlotRepository.getReferenceById(output.timeSlotId()));
+            entry.setInstitution(institution);
             return entry;
         }).toList();
 
