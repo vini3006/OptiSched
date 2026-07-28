@@ -70,6 +70,8 @@ public class InstitutionService {
 
         institution.setName(request.name());
         institution.setCnpj(request.cnpj());
+        institution.setSubscriptionStatus(request.subscriptionStatus());
+        institution.setExpiresAt(request.expiresAt());
 
         Institution updated = institutionRepository.save(institution);
         return institutionMapper.toResponse(updated);

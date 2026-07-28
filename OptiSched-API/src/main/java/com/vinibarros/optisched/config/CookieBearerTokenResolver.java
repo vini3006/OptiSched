@@ -14,6 +14,11 @@ public class CookieBearerTokenResolver implements BearerTokenResolver {
 
     @Override
     public String resolve(HttpServletRequest request) {
+        String path = request.getServletPath();
+        if ("/auth/login".equals(path) || "/auth/logout".equals(path)) {
+            return null;
+        }
+
         if(request.getCookies() == null) {
             return null;
         }

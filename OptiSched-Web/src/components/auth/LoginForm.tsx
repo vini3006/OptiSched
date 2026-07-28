@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { isAxiosError } from "axios";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ export function LoginForm() {
   const { login, isLoggingIn } = useAuth();
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -29,8 +31,8 @@ export function LoginForm() {
     setFormError(null);
 
     try {
-      await login(values);
-      await navigate({ to: "/" });
+      const authUser = await login(values);
+      await navigate({ to: authUser.role === "SUPER_ADMIN" ? "/admin" : "/" });
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
         setFormError("E-mail ou senha inválidos.");
@@ -58,14 +60,29 @@ export function LoginForm() {
 
         <Field data-invalid={!!errors.password}>
           <FieldLabel htmlFor="password">Senha</FieldLabel>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            aria-invalid={!!errors.password}
-            {...register("password")}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="pr-9"
+              aria-invalid={!!errors.password}
+              {...register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
+            </button>
+          </div>
           <FieldError errors={[errors.password]} />
         </Field>
 

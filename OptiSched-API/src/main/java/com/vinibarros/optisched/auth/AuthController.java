@@ -37,6 +37,19 @@ public class AuthController {
         return ResponseEntity.ok(body);
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        Cookie cookie = new Cookie("access_token", "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        cookie.setAttribute("SameSite", "Lax");
+        response.addCookie(cookie);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     public ResponseEntity<AuthResponse> me(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
