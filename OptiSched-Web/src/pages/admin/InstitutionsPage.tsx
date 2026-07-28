@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -97,6 +98,7 @@ export function InstitutionsPage() {
   });
 
   const subscriptionStatus = watch("subscriptionStatus");
+  const expiresAt = watch("expiresAt");
 
   const createMutation = useMutation({
     mutationFn: (values: InstitutionFormValues) => createInstitution(toInstitutionInput(values)),
@@ -296,7 +298,12 @@ export function InstitutionsPage() {
 
                 <Field data-invalid={!!errors.expiresAt}>
                   <FieldLabel htmlFor="institution-expires-at">Expira em</FieldLabel>
-                  <Input id="institution-expires-at" type="date" {...register("expiresAt")} />
+                  <DatePickerField
+                    id="institution-expires-at"
+                    value={expiresAt ?? ""}
+                    onChange={(value) => setValue("expiresAt", value)}
+                    aria-invalid={!!errors.expiresAt}
+                  />
                   <FieldError errors={[errors.expiresAt]} />
                 </Field>
 
