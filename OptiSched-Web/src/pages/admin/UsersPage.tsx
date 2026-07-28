@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -41,7 +34,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { listInstitutions } from "@/api/institutions";
 import {
   createAdmin,
   createProfessor,
@@ -53,19 +45,13 @@ import {
   createUserSchema,
   type CreateUserFormValues,
 } from "@/lib/validations/user-schema";
+import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import type { ManagedUser } from "@/types/User";
-
-const INSTITUTIONS_QUERY_KEY = ["institutions"] as const;
 
 type CreateDialog = "admin" | "professor" | "super-admin" | null;
 
 export function UsersPage() {
-  const { data: institutions } = useQuery({
-    queryKey: INSTITUTIONS_QUERY_KEY,
-    queryFn: listInstitutions,
-  });
-
-  const [institutionId, setInstitutionId] = useState<number | null>(null);
+  const { selectedInstitutionId: institutionId } = useSelectedInstitution();
   const [openDialog, setOpenDialog] = useState<CreateDialog>(null);
 
   return (
@@ -101,30 +87,6 @@ export function UsersPage() {
             Novo Professor
           </Button>
         </div>
-      </div>
-
-      <div className="mt-4 flex items-center gap-3">
-        <span className="text-sm font-medium text-foreground">Instituição:</span>
-        <Select
-          value={institutionId !== null ? String(institutionId) : ""}
-          onValueChange={(value) => setInstitutionId(value ? Number(value) : null)}
-        >
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder="Selecione uma instituição">
-              {(value: string) =>
-                institutions?.find((institution) => String(institution.id) === value)?.name ??
-                value
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-            {institutions?.map((institution) => (
-              <SelectItem key={institution.id} value={String(institution.id)}>
-                {institution.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="mt-6">

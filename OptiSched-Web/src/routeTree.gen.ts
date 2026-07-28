@@ -14,6 +14,8 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
+import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraestrutura'
 import { Route as AdminInstituicoesRouteImport } from './routes/admin.instituicoes'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 
@@ -42,6 +44,16 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminEstruturaAcademicaRoute = AdminEstruturaAcademicaRouteImport.update({
+  id: '/estrutura-academica',
+  path: '/estrutura-academica',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInfraestruturaRoute = AdminInfraestruturaRouteImport.update({
+  id: '/infraestrutura',
+  path: '/infraestrutura',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminInstituicoesRoute = AdminInstituicoesRouteImport.update({
   id: '/instituicoes',
   path: '/instituicoes',
@@ -58,6 +70,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
@@ -66,6 +80,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin': typeof AdminIndexRoute
@@ -76,6 +92,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/instituicoes': typeof AdminInstituicoesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
@@ -87,6 +105,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/esqueci-senha'
     | '/login'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/instituicoes'
     | '/admin/usuarios'
     | '/admin/'
@@ -95,6 +115,8 @@ export interface FileRouteTypes {
     | '/'
     | '/esqueci-senha'
     | '/login'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/instituicoes'
     | '/admin/usuarios'
     | '/admin'
@@ -104,6 +126,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/esqueci-senha'
     | '/login'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/instituicoes'
     | '/admin/usuarios'
     | '/admin/'
@@ -153,6 +177,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/estrutura-academica': {
+      id: '/admin/estrutura-academica'
+      path: '/estrutura-academica'
+      fullPath: '/admin/estrutura-academica'
+      preLoaderRoute: typeof AdminEstruturaAcademicaRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/infraestrutura': {
+      id: '/admin/infraestrutura'
+      path: '/infraestrutura'
+      fullPath: '/admin/infraestrutura'
+      preLoaderRoute: typeof AdminInfraestruturaRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/instituicoes': {
       id: '/admin/instituicoes'
       path: '/instituicoes'
@@ -171,12 +209,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminEstruturaAcademicaRoute: typeof AdminEstruturaAcademicaRoute
+  AdminInfraestruturaRoute: typeof AdminInfraestruturaRoute
   AdminInstituicoesRoute: typeof AdminInstituicoesRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminEstruturaAcademicaRoute: AdminEstruturaAcademicaRoute,
+  AdminInfraestruturaRoute: AdminInfraestruturaRoute,
   AdminInstituicoesRoute: AdminInstituicoesRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,

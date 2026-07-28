@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/UseAuth";
 const adminNavLinks = [
   { to: "/admin/instituicoes", label: "Instituições" },
   { to: "/admin/usuarios", label: "Usuários" },
+  { to: "/admin/estrutura-academica", label: "Estrutura Acadêmica" },
+  { to: "/admin/infraestrutura", label: "Infraestrutura" },
 ];
 
 export function SuperAdminNavBar() {
