@@ -15,6 +15,8 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
+import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraestrutura'
 import { Route as AdminMinhaInstituicaoRouteImport } from './routes/admin.minha-instituicao'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminEstruturaAcademicaRouteImport } from './routes/super-admin.estrutura-academica'
@@ -52,6 +54,16 @@ const SuperAdminRoute = SuperAdminRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEstruturaAcademicaRoute = AdminEstruturaAcademicaRouteImport.update({
+  id: '/estrutura-academica',
+  path: '/estrutura-academica',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInfraestruturaRoute = AdminInfraestruturaRouteImport.update({
+  id: '/infraestrutura',
+  path: '/infraestrutura',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminMinhaInstituicaoRoute = AdminMinhaInstituicaoRouteImport.update({
@@ -103,6 +115,8 @@ export interface FileRoutesByFullPath {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
@@ -117,6 +131,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
@@ -134,6 +150,8 @@ export interface FileRoutesById {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
+  '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
@@ -152,6 +170,8 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/super-admin'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
@@ -166,6 +186,8 @@ export interface FileRouteTypes {
     | '/'
     | '/esqueci-senha'
     | '/login'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
@@ -182,6 +204,8 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/super-admin'
+    | '/admin/estrutura-academica'
+    | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
@@ -245,6 +269,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/estrutura-academica': {
+      id: '/admin/estrutura-academica'
+      path: '/estrutura-academica'
+      fullPath: '/admin/estrutura-academica'
+      preLoaderRoute: typeof AdminEstruturaAcademicaRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/infraestrutura': {
+      id: '/admin/infraestrutura'
+      path: '/infraestrutura'
+      fullPath: '/admin/infraestrutura'
+      preLoaderRoute: typeof AdminInfraestruturaRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/minha-instituicao': {
       id: '/admin/minha-instituicao'
       path: '/minha-instituicao'
@@ -305,11 +343,15 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminEstruturaAcademicaRoute: typeof AdminEstruturaAcademicaRoute
+  AdminInfraestruturaRoute: typeof AdminInfraestruturaRoute
   AdminMinhaInstituicaoRoute: typeof AdminMinhaInstituicaoRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminEstruturaAcademicaRoute: AdminEstruturaAcademicaRoute,
+  AdminInfraestruturaRoute: AdminInfraestruturaRoute,
   AdminMinhaInstituicaoRoute: AdminMinhaInstituicaoRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
