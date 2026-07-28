@@ -10,6 +10,7 @@ import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.UserMapper;
 import com.vinibarros.optisched.repository.InstitutionRepository;
 import com.vinibarros.optisched.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,10 +93,14 @@ public class UserService {
     }
 
     @Transactional
-    public void delete(Long id, Long institutionId) {
-        if (!userRepository.existsByIdAndInstitutionId(id, institutionId)) {
-            throw new ResourceNotFoundException("User", id);
+    public void delete(Long id, Long institutionId, boolean requestedByAdmin) {
+        User user = userRepository.findByIdAndInstitutionId(id, institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        if (requestedByAdmin && user.getRole() != UserRole.PROFESSOR) {
+            throw new AccessDeniedException("Admins can only delete Professor accounts.");
         }
+
         userRepository.deleteById(id);
     }
 }

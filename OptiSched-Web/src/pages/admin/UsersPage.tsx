@@ -99,7 +99,7 @@ export function UsersPage() {
 
       <div className="mt-6">
         {institutionId ? (
-          <UsersTable institutionId={institutionId} />
+          <UsersTable institutionId={institutionId} isSuperAdmin={isSuperAdmin} />
         ) : (
           <p className="text-sm text-muted-foreground">
             Selecione uma instituição para ver seus usuários.
@@ -173,7 +173,13 @@ export function UsersPage() {
   );
 }
 
-function UsersTable({ institutionId }: { institutionId: number }) {
+function UsersTable({
+  institutionId,
+  isSuperAdmin,
+}: {
+  institutionId: number;
+  isSuperAdmin: boolean;
+}) {
   const queryClient = useQueryClient();
   const usersQueryKey = ["users", institutionId] as const;
 
@@ -227,13 +233,15 @@ function UsersTable({ institutionId }: { institutionId: number }) {
                   <Badge variant="outline">{user.role}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setDeletingUser(user)}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
+                  {(isSuperAdmin || user.role === "PROFESSOR") && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeletingUser(user)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

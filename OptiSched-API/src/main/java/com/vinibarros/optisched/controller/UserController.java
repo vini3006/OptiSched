@@ -100,7 +100,7 @@ public class UserController {
                 institutionIdSuperAdmin
         );
 
-        userService.delete(id, targetInstitutionId);
+        userService.delete(id, targetInstitutionId, institutionIdAdmin != null);
         return ResponseEntity.noContent().build();
     }
 }
