@@ -1,5 +1,6 @@
 import type { DayOfWeek } from "@/types/TimeSlot";
 import type { Term } from "@/types/Semester";
+import type { SubscriptionStatus } from "@/types/Institution";
 
 export const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
   MONDAY: "Segunda-feira",
@@ -24,4 +25,11 @@ export const DAY_OF_WEEK_ORDER: DayOfWeek[] = [
 export const TERM_LABELS: Record<Term, string> = {
   FIRST: "1º Semestre",
   SECOND: "2º Semestre",
+};
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  TRIAL: "Trial",
+  ACTIVE: "Ativo",
+  CANCELED: "Cancelado",
+  UNPAID: "Inadimplente",
 };

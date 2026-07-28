@@ -53,16 +53,10 @@ import {
   institutionSchema,
   type InstitutionFormValues,
 } from "@/lib/validations/institution-schema";
+import { SUBSCRIPTION_STATUS_LABELS } from "@/lib/enum-labels";
 import type { Institution, InstitutionInput } from "@/types/Institution";
 
 const INSTITUTIONS_QUERY_KEY = ["institutions"] as const;
-
-const SUBSCRIPTION_STATUS_LABELS: Record<InstitutionInput["subscriptionStatus"], string> = {
-  TRIAL: "Trial",
-  ACTIVE: "Ativo",
-  CANCELED: "Cancelado",
-  UNPAID: "Inadimplente",
-};
 
 function toInstitutionInput(values: InstitutionFormValues): InstitutionInput {
   return {

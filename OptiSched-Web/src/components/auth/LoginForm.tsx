@@ -32,7 +32,11 @@ export function LoginForm() {
 
     try {
       const authUser = await login(values);
-      await navigate({ to: authUser.role === "SUPER_ADMIN" ? "/super-admin" : "/" });
+      const roleHome: Record<string, string> = {
+        SUPER_ADMIN: "/super-admin",
+        ADMIN: "/admin",
+      };
+      await navigate({ to: roleHome[authUser.role] ?? "/" });
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
         setFormError("E-mail ou senha inválidos.");

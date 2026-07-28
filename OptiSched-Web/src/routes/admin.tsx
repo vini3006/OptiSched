@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { AUTH_QUERY_KEY, fetchCurrentUser } from "@/api/auth";
-import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 
-export const Route = createFileRoute("/super-admin")({
+export const Route = createFileRoute("/admin")({
   beforeLoad: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData({
       queryKey: AUTH_QUERY_KEY,
@@ -15,11 +15,11 @@ export const Route = createFileRoute("/super-admin")({
       throw redirect({ to: "/login" });
     }
 
-    if (user.role !== "SUPER_ADMIN") {
+    if (user.role !== "ADMIN") {
       throw redirect({ to: "/" });
     }
 
     return { user };
   },
-  component: SuperAdminLayout,
+  component: AdminLayout,
 });
