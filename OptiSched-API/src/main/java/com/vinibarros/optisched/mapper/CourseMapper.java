@@ -13,6 +13,7 @@ public class CourseMapper {
     public Course toEntity(CourseRequest request, Institution institution){
         Course course = new Course();
         course.setName(request.name());
+        course.setTotalSemesters(request.totalSemesters());
         course.setInstitution(institution);
         return course;
     }
@@ -20,7 +21,8 @@ public class CourseMapper {
     public CourseResponse toResponse(Course course){
         return new CourseResponse(
                 course.getId(),
-                course.getName()
+                course.getName(),
+                course.getTotalSemesters()
         );
     }
 }

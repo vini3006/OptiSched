@@ -51,18 +51,9 @@ import { createTimeSlot, deleteTimeSlot, listTimeSlots } from "@/api/time-slots"
 import { classroomSchema, type ClassroomFormValues } from "@/lib/validations/classroom-schema";
 import { timeSlotSchema, type TimeSlotFormValues } from "@/lib/validations/time-slot-schema";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { DAY_OF_WEEK_LABELS } from "@/lib/enum-labels";
 import type { Classroom } from "@/types/Classroom";
 import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
-
-const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
-  MONDAY: "Segunda-feira",
-  TUESDAY: "Terça-feira",
-  WEDNESDAY: "Quarta-feira",
-  THURSDAY: "Quinta-feira",
-  FRIDAY: "Sexta-feira",
-  SATURDAY: "Sábado",
-  SUNDAY: "Domingo",
-};
 
 function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;

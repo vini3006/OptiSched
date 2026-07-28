@@ -69,6 +69,7 @@ public class CourseService {
         }
 
         course.setName(request.name());
+        course.setTotalSemesters(request.totalSemesters());
 
         Course updated = courseRepository.save(course);
         return courseMapper.toResponse(updated);

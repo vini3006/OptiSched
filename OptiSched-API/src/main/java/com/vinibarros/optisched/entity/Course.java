@@ -24,6 +24,9 @@ public class Course {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "total_semesters", nullable = false)
+    private Integer totalSemesters;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;

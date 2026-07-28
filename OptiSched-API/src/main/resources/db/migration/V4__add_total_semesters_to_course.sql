@@ -1,0 +1,2 @@
+ALTER TABLE course ADD COLUMN total_semesters INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE course ALTER COLUMN total_semesters DROP DEFAULT;

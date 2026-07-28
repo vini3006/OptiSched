@@ -63,15 +63,11 @@ import {
   type SubjectOfferingFormValues,
 } from "@/lib/validations/subject-offering-schema";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { TERM_LABELS } from "@/lib/enum-labels";
 import type { Course } from "@/types/Course";
 import type { Subject } from "@/types/Subject";
 import type { Semester, Term } from "@/types/Semester";
 import type { SubjectOffering } from "@/types/SubjectOffering";
-
-const TERM_LABELS: Record<Term, string> = {
-  FIRST: "1º Semestre",
-  SECOND: "2º Semestre",
-};
 
 function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
@@ -157,7 +153,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
     formState: { errors },
   } = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
-    defaultValues: { name: "" },
+    defaultValues: { name: "", totalSemesters: 1 },
   });
 
   const createMutation = useMutation({
@@ -188,14 +184,14 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ name: "" });
+    reset({ name: "", totalSemesters: 1 });
     setDialogOpen(true);
   }
 
   function openEdit(course: Course) {
     setEditing(course);
     setFormError(null);
-    reset({ name: course.name });
+    reset({ name: course.name, totalSemesters: course.totalSemesters });
     setDialogOpen(true);
   }
 
@@ -233,20 +229,21 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Total de semestres</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && courses?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={2} className="text-center text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
                   Nenhum curso cadastrado.
                 </TableCell>
               </TableRow>
@@ -254,6 +251,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
             {courses?.map((course) => (
               <TableRow key={course.id}>
                 <TableCell className="font-medium">{course.name}</TableCell>
+                <TableCell>{course.totalSemesters}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon-sm" onClick={() => openEdit(course)}>
                     <Pencil className="size-4" />
@@ -282,6 +280,16 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
                 <FieldLabel htmlFor="course-name">Nome</FieldLabel>
                 <Input id="course-name" {...register("name")} />
                 <FieldError errors={[errors.name]} />
+              </Field>
+              <Field data-invalid={!!errors.totalSemesters}>
+                <FieldLabel htmlFor="course-total-semesters">Total de semestres</FieldLabel>
+                <Input
+                  id="course-total-semesters"
+                  type="number"
+                  min={1}
+                  {...register("totalSemesters", { valueAsNumber: true })}
+                />
+                <FieldError errors={[errors.totalSemesters]} />
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
@@ -445,7 +453,9 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
               <TableRow key={subject.id}>
                 <TableCell className="font-medium">{subject.code}</TableCell>
                 <TableCell>{subject.name}</TableCell>
-                <TableCell>{subject.workload}h</TableCell>
+                <TableCell>
+                  {subject.workload} {subject.workload === 1 ? "tempo" : "tempos"} de aula
+                </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon-sm" onClick={() => openEdit(subject)}>
                     <Pencil className="size-4" />
