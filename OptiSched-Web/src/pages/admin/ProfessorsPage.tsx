@@ -63,6 +63,7 @@ import {
   availabilitySchema,
   type AvailabilityFormValues,
 } from "@/lib/validations/availability-schema";
+import { useAuth } from "@/hooks/UseAuth";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
 import type { Professor } from "@/types/Professor";
@@ -574,6 +575,9 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function AvailabilityTab({ institutionId }: { institutionId: number }) {
+  const { user } = useAuth();
+  const canManageAvailability = user?.role === "SUPER_ADMIN";
+
   const queryClient = useQueryClient();
   const queryKey = ["availabilities", institutionId] as const;
 
@@ -666,12 +670,18 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
 
   return (
     <div>
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={openCreate}>
-          <Plus className="size-4" />
-          Nova disponibilidade
-        </Button>
-      </div>
+      {canManageAvailability ? (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={openCreate}>
+            <Plus className="size-4" />
+            Nova disponibilidade
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          A disponibilidade é gerenciada pelo próprio professor.
+        </p>
+      )}
 
       <div className="card-elevated mt-4 rounded-2xl">
         <Table>
@@ -746,13 +756,15 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
                     {availability.timeSlotStartTime.slice(0, 5)} -{" "}
                     {availability.timeSlotEndTime.slice(0, 5)}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setDeleting(availability)}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
+                  {canManageAvailability && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeleting(availability)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

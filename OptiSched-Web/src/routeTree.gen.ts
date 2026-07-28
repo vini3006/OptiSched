@@ -18,6 +18,8 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
 import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraestrutura'
 import { Route as AdminMinhaInstituicaoRouteImport } from './routes/admin.minha-instituicao'
+import { Route as AdminProfessoresRouteImport } from './routes/admin.professores'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminEstruturaAcademicaRouteImport } from './routes/super-admin.estrutura-academica'
 import { Route as SuperAdminGradesRouteImport } from './routes/super-admin.grades'
@@ -71,6 +73,16 @@ const AdminMinhaInstituicaoRoute = AdminMinhaInstituicaoRouteImport.update({
   path: '/minha-instituicao',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProfessoresRoute = AdminProfessoresRouteImport.update({
+  id: '/professores',
+  path: '/professores',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -118,6 +130,8 @@ export interface FileRoutesByFullPath {
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
+  '/admin/professores': typeof AdminProfessoresRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -134,6 +148,8 @@ export interface FileRoutesByTo {
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
+  '/admin/professores': typeof AdminProfessoresRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -153,6 +169,8 @@ export interface FileRoutesById {
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
+  '/admin/professores': typeof AdminProfessoresRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -173,6 +191,8 @@ export interface FileRouteTypes {
     | '/admin/estrutura-academica'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
+    | '/admin/professores'
+    | '/admin/usuarios'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -189,6 +209,8 @@ export interface FileRouteTypes {
     | '/admin/estrutura-academica'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
+    | '/admin/professores'
+    | '/admin/usuarios'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -207,6 +229,8 @@ export interface FileRouteTypes {
     | '/admin/estrutura-academica'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
+    | '/admin/professores'
+    | '/admin/usuarios'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -290,6 +314,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMinhaInstituicaoRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/professores': {
+      id: '/admin/professores'
+      path: '/professores'
+      fullPath: '/admin/professores'
+      preLoaderRoute: typeof AdminProfessoresRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/super-admin/': {
       id: '/super-admin/'
       path: '/'
@@ -346,6 +384,8 @@ interface AdminRouteChildren {
   AdminEstruturaAcademicaRoute: typeof AdminEstruturaAcademicaRoute
   AdminInfraestruturaRoute: typeof AdminInfraestruturaRoute
   AdminMinhaInstituicaoRoute: typeof AdminMinhaInstituicaoRoute
+  AdminProfessoresRoute: typeof AdminProfessoresRoute
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -353,6 +393,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminEstruturaAcademicaRoute: AdminEstruturaAcademicaRoute,
   AdminInfraestruturaRoute: AdminInfraestruturaRoute,
   AdminMinhaInstituicaoRoute: AdminMinhaInstituicaoRoute,
+  AdminProfessoresRoute: AdminProfessoresRoute,
+  AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

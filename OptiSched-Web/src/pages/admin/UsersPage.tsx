@@ -45,12 +45,15 @@ import {
   createUserSchema,
   type CreateUserFormValues,
 } from "@/lib/validations/user-schema";
+import { useAuth } from "@/hooks/UseAuth";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import type { ManagedUser } from "@/types/User";
 
 type CreateDialog = "admin" | "professor" | "super-admin" | null;
 
 export function UsersPage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId: institutionId } = useSelectedInstitution();
   const [openDialog, setOpenDialog] = useState<CreateDialog>(null);
 
@@ -60,24 +63,29 @@ export function UsersPage() {
         <div>
           <h1 className="text-xl font-semibold text-primary">Usuários</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Crie contas de Super Admin, Admin e Professor, e gerencie os usuários de cada
-            instituição.
+            {isSuperAdmin
+              ? "Crie contas de Super Admin, Admin e Professor, e gerencie os usuários de cada instituição."
+              : "Crie contas de Professor e gerencie os usuários da sua instituição."}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setOpenDialog("super-admin")}>
-            <Plus className="size-4" />
-            Novo Super Admin
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setOpenDialog("admin")}
-            disabled={!institutionId}
-          >
-            <Plus className="size-4" />
-            Novo Admin
-          </Button>
+          {isSuperAdmin && (
+            <>
+              <Button variant="outline" onClick={() => setOpenDialog("super-admin")}>
+                <Plus className="size-4" />
+                Novo Super Admin
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setOpenDialog("admin")}
+                disabled={!institutionId}
+              >
+                <Plus className="size-4" />
+                Novo Admin
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
             onClick={() => setOpenDialog("professor")}
