@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
   SelectedInstitutionContext,
@@ -17,7 +17,7 @@ export function SelectedInstitutionProvider({ children }: { children: ReactNode 
     readInitialValue
   );
 
-  function setSelectedInstitutionId(institutionId: number | null) {
+  const setSelectedInstitutionId = useCallback((institutionId: number | null) => {
     setSelectedInstitutionIdState(institutionId);
 
     if (institutionId === null) {
@@ -25,11 +25,11 @@ export function SelectedInstitutionProvider({ children }: { children: ReactNode 
     } else {
       localStorage.setItem(STORAGE_KEY, String(institutionId));
     }
-  }
+  }, []);
 
   const value = useMemo<SelectedInstitutionContextValue>(
     () => ({ selectedInstitutionId, setSelectedInstitutionId }),
-    [selectedInstitutionId]
+    [selectedInstitutionId, setSelectedInstitutionId]
   );
 
   return (

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -19,6 +20,16 @@ export function InstitutionSelectorBar() {
   });
   const { selectedInstitutionId, setSelectedInstitutionId } = useSelectedInstitution();
 
+  useEffect(() => {
+    if (
+      institutions !== undefined &&
+      selectedInstitutionId !== null &&
+      !institutions.some((institution) => institution.id === selectedInstitutionId)
+    ) {
+      setSelectedInstitutionId(null);
+    }
+  }, [institutions, selectedInstitutionId, setSelectedInstitutionId]);
+
   return (
     <div className="border-b border-border/70 bg-secondary/40">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
@@ -30,8 +41,10 @@ export function InstitutionSelectorBar() {
           <SelectTrigger className="w-64">
             <SelectValue placeholder="Selecione uma instituição">
               {(value: string) =>
-                institutions?.find((institution) => String(institution.id) === value)?.name ??
                 value
+                  ? (institutions?.find((institution) => String(institution.id) === value)
+                      ?.name ?? value)
+                  : "Selecione uma instituição"
               }
             </SelectValue>
           </SelectTrigger>
