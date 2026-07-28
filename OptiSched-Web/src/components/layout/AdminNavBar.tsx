@@ -6,6 +6,7 @@ const navLinks: NavLink[] = [
   { to: "/admin/estrutura-academica", label: "Estrutura Acadêmica" },
   { to: "/admin/infraestrutura", label: "Infraestrutura" },
   { to: "/admin/professores", label: "Professores" },
+  { to: "/admin/grades", label: "Grades" },
 ];
 
 export function AdminNavBar() {

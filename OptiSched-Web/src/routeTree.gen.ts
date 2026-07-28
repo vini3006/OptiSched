@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
+import { Route as AdminGradesRouteImport } from './routes/admin.grades'
 import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraestrutura'
 import { Route as AdminMinhaInstituicaoRouteImport } from './routes/admin.minha-instituicao'
 import { Route as AdminProfessoresRouteImport } from './routes/admin.professores'
@@ -61,6 +62,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminEstruturaAcademicaRoute = AdminEstruturaAcademicaRouteImport.update({
   id: '/estrutura-academica',
   path: '/estrutura-academica',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGradesRoute = AdminGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminInfraestruturaRoute = AdminInfraestruturaRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
+  '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/super-admin'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/admin/professores'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/admin/professores'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/super-admin'
     | '/admin/estrutura-academica'
+    | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/admin/professores'
@@ -298,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/estrutura-academica'
       fullPath: '/admin/estrutura-academica'
       preLoaderRoute: typeof AdminEstruturaAcademicaRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/grades': {
+      id: '/admin/grades'
+      path: '/grades'
+      fullPath: '/admin/grades'
+      preLoaderRoute: typeof AdminGradesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/infraestrutura': {
@@ -382,6 +401,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminEstruturaAcademicaRoute: typeof AdminEstruturaAcademicaRoute
+  AdminGradesRoute: typeof AdminGradesRoute
   AdminInfraestruturaRoute: typeof AdminInfraestruturaRoute
   AdminMinhaInstituicaoRoute: typeof AdminMinhaInstituicaoRoute
   AdminProfessoresRoute: typeof AdminProfessoresRoute
@@ -391,6 +411,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminEstruturaAcademicaRoute: AdminEstruturaAcademicaRoute,
+  AdminGradesRoute: AdminGradesRoute,
   AdminInfraestruturaRoute: AdminInfraestruturaRoute,
   AdminMinhaInstituicaoRoute: AdminMinhaInstituicaoRoute,
   AdminProfessoresRoute: AdminProfessoresRoute,
