@@ -29,10 +29,10 @@ public class InstitutionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or (hasRole('ADMIN') and #id == #institutionId)")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or (hasRole('ADMIN') and #id == #institutionIdAdmin)")
     public ResponseEntity<InstitutionResponse> findById(
             @PathVariable Long id,
-            @RequestAttribute(required = false) Long institutionId) {
+            @RequestAttribute(required = false) Long institutionIdAdmin) {
         return ResponseEntity.ok(institutionService.findById(id));
     }
 

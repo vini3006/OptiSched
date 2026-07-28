@@ -26,6 +26,7 @@ public class TokenService {
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(expiresIn))
                 .claim("user_id", userId)
+                .claim("role", role)
                 .claim("scope", "ROLE_" + role);
 
         if (institutionId != null) {

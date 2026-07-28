@@ -25,6 +25,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,16 +46,25 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.private-key}")
     private RSAPrivateKey privateKey;
 
-    private final InstitutionFilter institutionFilter;
+    @Value("${cors.allowed-origins:http://localhost:5173}")
+    private String corsAllowedOrigins;
 
-    public SecurityConfig(InstitutionFilter institutionFilter) {
+    private final InstitutionFilter institutionFilter;
+    private final CookieBearerTokenResolver cookieBearerTokenResolver;
+
+    public SecurityConfig(InstitutionFilter institutionFilter, CookieBearerTokenResolver cookieBearerTokenResolver) {
         this.institutionFilter = institutionFilter;
+        this.cookieBearerTokenResolver = cookieBearerTokenResolver;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers("/auth/login")
+                )
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -62,20 +73,19 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .bearerTokenResolver(cookieBearerTokenResolver)
                 )
                 .addFilterAfter(institutionFilter, BearerTokenAuthenticationFilter.class);
-
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("${CORS_ALLOWED_ORIGINS:http://localhost:5173}"));
+        configuration.setAllowedOrigins(List.of(corsAllowedOrigins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -86,7 +96,6 @@ public class SecurityConfig {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
         authoritiesConverter.setAuthorityPrefix("");
         authoritiesConverter.setAuthoritiesClaimName("scope");
-
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
         return converter;

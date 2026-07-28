@@ -30,7 +30,7 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public AuthResponse login(AuthRequest request) {
+    public LoginResult login(AuthRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadCredentialsException("Invalid e-mail or password."));
 
@@ -59,13 +59,13 @@ public class AuthService {
                 professorId
         );
 
-        return new AuthResponse(
+        return new LoginResult(
                 token,
-                "Bearer",
                 user.getId(),
                 user.getEmail(),
                 user.getRole().name(),
-                institutionId
+                institutionId,
+                professorId
         );
     }
 }
