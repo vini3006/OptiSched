@@ -4,7 +4,7 @@ import { SuperAdminNavBar } from "@/components/layout/SuperAdminNavBar";
 import { InstitutionSelectorBar } from "@/components/layout/InstitutionSelectorBar";
 import { SelectedInstitutionProvider } from "@/contexts/SelectedInstitutionContext";
 
-const ROUTES_WITHOUT_INSTITUTION_SELECTOR = ["/admin/instituicoes"];
+const ROUTES_WITHOUT_INSTITUTION_SELECTOR = ["/super-admin/instituicoes"];
 
 export function AdminLayout() {
   const { pathname } = useLocation();

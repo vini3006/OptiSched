@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AUTH_QUERY_KEY, fetchCurrentUser } from "@/api/auth";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/super-admin")({
   beforeLoad: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData({
       queryKey: AUTH_QUERY_KEY,

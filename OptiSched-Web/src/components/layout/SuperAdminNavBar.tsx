@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/UseAuth";
 
 const adminNavLinks = [
-  { to: "/admin/instituicoes", label: "Instituições" },
-  { to: "/admin/usuarios", label: "Usuários" },
-  { to: "/admin/estrutura-academica", label: "Estrutura Acadêmica" },
-  { to: "/admin/infraestrutura", label: "Infraestrutura" },
-  { to: "/admin/professores", label: "Professores" },
-  { to: "/admin/grades", label: "Grades" },
+  { to: "/super-admin/instituicoes", label: "Instituições" },
+  { to: "/super-admin/usuarios", label: "Usuários" },
+  { to: "/super-admin/estrutura-academica", label: "Estrutura Acadêmica" },
+  { to: "/super-admin/infraestrutura", label: "Infraestrutura" },
+  { to: "/super-admin/professores", label: "Professores" },
+  { to: "/super-admin/grades", label: "Grades" },
 ];
 
 export function SuperAdminNavBar() {
@@ -27,7 +27,7 @@ export function SuperAdminNavBar() {
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-6">
-          <Link to="/admin" className="flex items-center">
+          <Link to="/super-admin" className="flex items-center">
             <img src={logoFull} alt="OptiSched" className="h-20 w-auto" />
           </Link>
 
