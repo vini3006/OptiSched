@@ -28,7 +28,12 @@ public class AvailabilityController {
     public ResponseEntity<AvailabilityResponse> create(
             @Valid @RequestBody AvailabilityRequest request,
             @RequestParam(required = false) Long institutionIdSuperAdmin,
-            @RequestAttribute(required = false) Long institutionIdProfessor) {
+            @RequestAttribute(required = false) Long institutionIdProfessor,
+            @RequestAttribute(required = false) Long authenticatedProfessorId) {
+
+        if (authenticatedProfessorId != null && !authenticatedProfessorId.equals(request.professorId())) {
+            throw new AccessDeniedException("Professors can only create availability for themselves.");
+        }
 
         Long targetInstitutionId = MultiTenantUtils.resolveInstitutionId("create availability", institutionIdProfessor, institutionIdSuperAdmin);
 
@@ -80,7 +85,12 @@ public class AvailabilityController {
             @RequestParam Long professorId,
             @RequestParam Long timeSlotId,
             @RequestParam(required = false) Long institutionIdSuperAdmin,
-            @RequestAttribute(required = false) Long institutionIdProfessor) {
+            @RequestAttribute(required = false) Long institutionIdProfessor,
+            @RequestAttribute(required = false) Long authenticatedProfessorId) {
+
+        if (authenticatedProfessorId != null && !authenticatedProfessorId.equals(professorId)) {
+            throw new AccessDeniedException("Professors can only delete their own availability.");
+        }
 
         Long targetInstitutionId = MultiTenantUtils.resolveInstitutionId("delete an availability", institutionIdProfessor, institutionIdSuperAdmin);
 

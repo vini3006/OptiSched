@@ -14,6 +14,7 @@ public class SubjectMapper {
         subject.setCode(request.code());
         subject.setName(request.name());
         subject.setWorkload(request.workload());
+        subject.setRequiredRoomType(request.requiredRoomType());
         subject.setInstitution(institution);
         return subject;
     }
@@ -23,7 +24,8 @@ public class SubjectMapper {
                 subject.getId(),
                 subject.getCode(),
                 subject.getName(),
-                subject.getWorkload()
+                subject.getWorkload(),
+                subject.getRequiredRoomType()
         );
     }
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,17 +45,26 @@ import {
 import {
   createClassroom,
   deleteClassroom,
+  exportClassroomsCsv,
+  importClassroomsCsv,
   listClassrooms,
   updateClassroom,
 } from "@/api/classrooms";
-import { createTimeSlot, deleteTimeSlot, listTimeSlots } from "@/api/time-slots";
+import { CsvImportExport, type CsvColumnSpec } from "@/components/admin/CsvImportExport";
+import {
+  createTimeSlot,
+  deleteTimeSlot,
+  exportTimeSlotsCsv,
+  importTimeSlotsCsv,
+  listTimeSlots,
+} from "@/api/time-slots";
 import { classroomSchema, type ClassroomFormValues } from "@/lib/validations/classroom-schema";
 import { timeSlotSchema, type TimeSlotFormValues } from "@/lib/validations/time-slot-schema";
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
-import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
-import type { Classroom } from "@/types/Classroom";
+import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER, ROOM_TYPE_LABELS } from "@/lib/enum-labels";
+import type { Classroom, RoomType } from "@/types/Classroom";
 import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
 
 function EmptyInstitutionNotice({ text }: { text: string }) {
@@ -63,6 +73,24 @@ function EmptyInstitutionNotice({ text }: { text: string }) {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+
+function useClassroomCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminInfrastructure");
+  return [
+    { name: "number", description: t("classroomCsvColumns.number") },
+    { name: "capacity", description: t("classroomCsvColumns.capacity") },
+    { name: "type", description: t("classroomCsvColumns.type") },
+  ];
+}
+
+function useTimeSlotCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminInfrastructure");
+  return [
+    { name: "dayOfWeek", description: t("timeSlotCsvColumns.dayOfWeek") },
+    { name: "startTime", description: t("timeSlotCsvColumns.startTime") },
+    { name: "endTime", description: t("timeSlotCsvColumns.endTime") },
+  ];
+}
 
 function TimeSelect({
   id,
@@ -73,13 +101,14 @@ function TimeSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation("adminInfrastructure");
   const [hour, minute] = value ? value.split(":") : ["", ""];
 
   return (
     <div className="flex items-center gap-2">
       <Select value={hour} onValueChange={(newHour) => onChange(`${newHour}:${minute || "00"}`)}>
         <SelectTrigger id={id} className="w-full">
-          <SelectValue placeholder="Hora" />
+          <SelectValue placeholder={t("hourPlaceholder")} />
         </SelectTrigger>
         <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
           {HOURS.map((h) => (
@@ -95,7 +124,7 @@ function TimeSelect({
         onValueChange={(newMinute) => onChange(`${hour || "00"}:${newMinute}`)}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Min" />
+          <SelectValue placeholder={t("minutePlaceholder")} />
         </SelectTrigger>
         <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
           {MINUTES.map((m) => (
@@ -110,22 +139,22 @@ function TimeSelect({
 }
 
 export function InfrastructurePage() {
+  const { t } = useTranslation("adminInfrastructure");
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-primary">Infraestrutura</h1>
+      <h1 className="text-xl font-semibold text-primary">{t("title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie as salas e a grade de horários possíveis
-        {isSuperAdmin ? " de cada instituição." : " da instituição selecionada."}
+        {isSuperAdmin ? t("subtitleSuperAdmin") : t("subtitleAdmin")}
       </p>
 
       <Tabs defaultValue="salas" className="mt-6">
         <TabsList>
-          <TabsTrigger value="salas">Salas</TabsTrigger>
-          <TabsTrigger value="horarios">Horários</TabsTrigger>
+          <TabsTrigger value="salas">{t("tabSalas")}</TabsTrigger>
+          <TabsTrigger value="horarios">{t("tabHorarios")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="salas" className="mt-4">
@@ -134,7 +163,7 @@ export function InfrastructurePage() {
           ) : selectedInstitutionId ? (
             <ClassroomsTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver as salas." />
+            <EmptyInstitutionNotice text={t("selectInstitutionClassrooms")} />
           )}
         </TabsContent>
 
@@ -144,7 +173,7 @@ export function InfrastructurePage() {
           ) : selectedInstitutionId ? (
             <TimeSlotsGroupedByDay institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver os horários." />
+            <EmptyInstitutionNotice text={t("selectInstitutionTimeSlots")} />
           )}
         </TabsContent>
       </Tabs>
@@ -157,8 +186,12 @@ export function InfrastructurePage() {
 // ---------------------------------------------------------------------------
 
 function ClassroomsGroupedByInstitution() {
-  const { institutions, itemsByInstitution: classroomsByInstitution, isLoading } =
-    useGroupedByInstitution("classrooms", listClassrooms);
+  const { t } = useTranslation("adminInfrastructure");
+  const {
+    institutions,
+    itemsByInstitution: classroomsByInstitution,
+    isLoading,
+  } = useGroupedByInstitution("classrooms", listClassrooms);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 
@@ -168,23 +201,23 @@ function ClassroomsGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Salas</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("columnClassrooms")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -193,16 +226,14 @@ function ClassroomsGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "sala" : "salas"}
-                  </TableCell>
+                  <TableCell>{t("classroomCount", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver salas
+                      {t("viewClassrooms")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -218,8 +249,8 @@ function ClassroomsGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Salas de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Gerencie as salas dessa instituição.</DialogDescription>
+            <DialogTitle>{t("classroomsOfInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("manageClassroomsDescription")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && (
@@ -233,6 +264,8 @@ function ClassroomsGroupedByInstitution() {
 }
 
 function ClassroomsTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminInfrastructure");
+  const classroomCsvColumns = useClassroomCsvColumns();
   const queryClient = useQueryClient();
   const queryKey = ["classrooms", institutionId] as const;
 
@@ -250,11 +283,14 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ClassroomFormValues>({
     resolver: zodResolver(classroomSchema),
-    defaultValues: { number: "", capacity: 1 },
+    defaultValues: { number: "", capacity: 1, type: "COMMON" },
   });
+  const classroomType = watch("type");
 
   const createMutation = useMutation({
     mutationFn: (values: ClassroomFormValues) => createClassroom(values, institutionId),
@@ -284,14 +320,18 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ number: "", capacity: 1 });
+    reset({ number: "", capacity: 1, type: "COMMON" });
     setDialogOpen(true);
   }
 
   function openEdit(classroom: Classroom) {
     setEditing(classroom);
     setFormError(null);
-    reset({ number: classroom.number, capacity: classroom.capacity });
+    reset({
+      number: classroom.number,
+      capacity: classroom.capacity,
+      type: classroom.type,
+    });
     setDialogOpen(true);
   }
 
@@ -309,7 +349,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError("Não foi possível salvar a sala. Tente novamente.");
+      setFormError(t("saveClassroomError"));
     }
   }
 
@@ -317,10 +357,18 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <CsvImportExport
+          onImport={(file) => importClassroomsCsv(file, institutionId)}
+          onExport={() => exportClassroomsCsv(institutionId)}
+          exportFilename="salas.csv"
+          onImported={() => queryClient.invalidateQueries({ queryKey })}
+          entityLabel="salas"
+          columns={classroomCsvColumns}
+        />
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Nova sala
+          {t("newClassroom")}
         </Button>
       </div>
 
@@ -328,37 +376,45 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead>
-              <TableHead>Capacidade</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnNumber")}</TableHead>
+              <TableHead>{t("columnCapacity")}</TableHead>
+              <TableHead>{t("columnType")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && classrooms?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma sala cadastrada.
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  {t("noClassroomsRegistered")}
                 </TableCell>
               </TableRow>
             )}
             {classrooms?.map((classroom) => (
               <TableRow key={classroom.id}>
                 <TableCell className="font-medium">{classroom.number}</TableCell>
-                <TableCell>{classroom.capacity} lugares</TableCell>
+                <TableCell>{t("capacitySeats", { count: classroom.capacity })}</TableCell>
+                <TableCell>{ROOM_TYPE_LABELS[classroom.type]}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(classroom)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("editClassroomAriaLabel", { number: classroom.number })}
+                    onClick={() => openEdit(classroom)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    aria-label={t("deleteClassroomAriaLabel", { number: classroom.number })}
                     onClick={() => setDeleting(classroom)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -373,20 +429,20 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar sala" : "Nova sala"}</DialogTitle>
+            <DialogTitle>{editing ? t("editClassroomDialogTitle") : t("newClassroomDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {editing ? "Atualize os dados da sala." : "Cadastre uma nova sala."}
+              {editing ? t("editClassroomDialogDescription") : t("newClassroomDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.number}>
-                <FieldLabel htmlFor="classroom-number">Número</FieldLabel>
+                <FieldLabel htmlFor="classroom-number">{t("formNumber")}</FieldLabel>
                 <Input id="classroom-number" {...register("number")} />
                 <FieldError errors={[errors.number]} />
               </Field>
               <Field data-invalid={!!errors.capacity}>
-                <FieldLabel htmlFor="classroom-capacity">Capacidade de Alunos</FieldLabel>
+                <FieldLabel htmlFor="classroom-capacity">{t("formCapacity")}</FieldLabel>
                 <Input
                   id="classroom-capacity"
                   type="number"
@@ -395,13 +451,32 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
                 />
                 <FieldError errors={[errors.capacity]} />
               </Field>
+              <Field data-invalid={!!errors.type}>
+                <FieldLabel htmlFor="classroom-type">{t("formType")}</FieldLabel>
+                <Select
+                  value={classroomType}
+                  onValueChange={(value) => setValue("type", value as RoomType)}
+                >
+                  <SelectTrigger id="classroom-type" className="w-full">
+                    <SelectValue>{(value: RoomType) => ROOM_TYPE_LABELS[value]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                    {Object.entries(ROOM_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError errors={[errors.type]} />
+              </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
                   {formError}
                 </p>
               )}
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -411,19 +486,18 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir sala?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteClassroomTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. A sala "{deleting?.number}" será removida
-              permanentemente.
+              {t("deleteClassroomDescription", { number: deleting?.number })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -437,6 +511,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function TimeSlotsGroupedByInstitution() {
+  const { t } = useTranslation("adminInfrastructure");
   const { institutions, isLoading } = useGroupedByInstitution("time-slots", listTimeSlots);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
@@ -447,22 +522,22 @@ function TimeSlotsGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -475,7 +550,7 @@ function TimeSlotsGroupedByInstitution() {
                     size="sm"
                     onClick={() => setViewingInstitutionId(institution.id)}
                   >
-                    Ver horários
+                    {t("viewTimeSlots")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -490,8 +565,8 @@ function TimeSlotsGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Horários de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Horários agrupados por dia da semana.</DialogDescription>
+            <DialogTitle>{t("timeSlotsOfInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("timeSlotsByDayDescription")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && (
@@ -505,26 +580,36 @@ function TimeSlotsGroupedByInstitution() {
 }
 
 function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminInfrastructure");
+  const timeSlotCsvColumns = useTimeSlotCsvColumns();
+  const queryClient = useQueryClient();
+  const queryKey = ["time-slots", institutionId] as const;
+
   const { data: timeSlots, isLoading } = useQuery({
-    queryKey: ["time-slots", institutionId],
+    queryKey,
     queryFn: () => listTimeSlots(institutionId),
   });
 
   const [viewingDay, setViewingDay] = useState<DayOfWeek | null>(null);
 
   const daysPresent = DAY_OF_WEEK_ORDER.filter((day) =>
-    (timeSlots ?? []).some((t) => t.dayOfWeek === day)
+    (timeSlots ?? []).some((t) => t.dayOfWeek === day),
   );
 
   if (viewingDay !== null) {
     return (
       <div>
         <div className="mb-4 flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={() => setViewingDay(null)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("common:actions.back")}
+            onClick={() => setViewingDay(null)}
+          >
             <ArrowLeft className="size-4" />
           </Button>
           <span className="text-sm font-medium text-foreground">
-            Horários de {DAY_OF_WEEK_LABELS[viewingDay]}
+            {t("timeSlotsOfDay", { day: DAY_OF_WEEK_LABELS[viewingDay] })}
           </span>
         </div>
         <TimeSlotsTab institutionId={institutionId} dayFilter={viewingDay} />
@@ -533,48 +618,59 @@ function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
   }
 
   return (
-    <div className="card-elevated rounded-2xl">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Dia da semana</TableHead>
-            <TableHead>Horários</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading && (
+    <div>
+      <div className="flex justify-end">
+        <CsvImportExport
+          onImport={(file) => importTimeSlotsCsv(file, institutionId)}
+          onExport={() => exportTimeSlotsCsv(institutionId)}
+          exportFilename="horarios.csv"
+          onImported={() => queryClient.invalidateQueries({ queryKey })}
+          entityLabel="horários"
+          columns={timeSlotCsvColumns}
+        />
+      </div>
+
+      <div className="card-elevated mt-4 rounded-2xl">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={3} className="text-center text-muted-foreground">
-                Carregando...
-              </TableCell>
+              <TableHead>{t("columnDayOfWeek")}</TableHead>
+              <TableHead>{t("columnTimeSlots")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
-          )}
-          {!isLoading && daysPresent.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={3} className="text-center text-muted-foreground">
-                Nenhum horário cadastrado.
-              </TableCell>
-            </TableRow>
-          )}
-          {daysPresent.map((day) => {
-            const count = (timeSlots ?? []).filter((t) => t.dayOfWeek === day).length;
-            return (
-              <TableRow key={day}>
-                <TableCell className="font-medium">{DAY_OF_WEEK_LABELS[day]}</TableCell>
-                <TableCell>
-                  {count} {count === 1 ? "horário" : "horários"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => setViewingDay(day)}>
-                    Ver horários
-                  </Button>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+            )}
+            {!isLoading && daysPresent.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  {t("noTimeSlotsRegistered")}
+                </TableCell>
+              </TableRow>
+            )}
+            {daysPresent.map((day) => {
+              const count = (timeSlots ?? []).filter((t) => t.dayOfWeek === day).length;
+              return (
+                <TableRow key={day}>
+                  <TableCell className="font-medium">{DAY_OF_WEEK_LABELS[day]}</TableCell>
+                  <TableCell>{t("timeSlotCount", { count })}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => setViewingDay(day)}>
+                      {t("viewTimeSlots")}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -586,6 +682,7 @@ function TimeSlotsTab({
   institutionId: number;
   dayFilter?: DayOfWeek;
 }) {
+  const { t } = useTranslation("adminInfrastructure");
   const queryClient = useQueryClient();
   const queryKey = ["time-slots", institutionId] as const;
 
@@ -644,7 +741,7 @@ function TimeSlotsTab({
     try {
       await createMutation.mutateAsync(values);
     } catch {
-      setFormError("Não foi possível salvar o horário. Tente novamente.");
+      setFormError(t("saveTimeSlotError"));
     }
   }
 
@@ -662,7 +759,7 @@ function TimeSlotsTab({
       <div className="flex justify-end">
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Novo horário
+          {t("newTimeSlot")}
         </Button>
       </div>
 
@@ -670,24 +767,24 @@ function TimeSlotsTab({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Dia da semana</TableHead>
-              <TableHead>Início</TableHead>
-              <TableHead>Término</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnDayOfWeek")}</TableHead>
+              <TableHead>{t("columnStart")}</TableHead>
+              <TableHead>{t("columnEnd")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && sortedTimeSlots.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Nenhum horário cadastrado.
+                  {t("noTimeSlotsRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -702,6 +799,10 @@ function TimeSlotsTab({
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    aria-label={t("deleteTimeSlotAriaLabel", {
+                      day: DAY_OF_WEEK_LABELS[timeSlot.dayOfWeek],
+                      time: timeSlot.startTime.slice(0, 5),
+                    })}
                     onClick={() => setDeleting(timeSlot)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -716,15 +817,13 @@ function TimeSlotsTab({
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo horário</DialogTitle>
-            <DialogDescription>
-              Cadastra um novo horário possível na grade de horários da instituição.
-            </DialogDescription>
+            <DialogTitle>{t("newTimeSlotDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newTimeSlotDialogDescription")}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.dayOfWeek}>
-                <FieldLabel htmlFor="time-slot-day">Dia da semana</FieldLabel>
+                <FieldLabel htmlFor="time-slot-day">{t("formDayOfWeek")}</FieldLabel>
                 <Select
                   value={dayOfWeek}
                   onValueChange={(value) =>
@@ -732,9 +831,7 @@ function TimeSlotsTab({
                   }
                 >
                   <SelectTrigger id="time-slot-day" className="w-full">
-                    <SelectValue>
-                      {(value: DayOfWeek) => DAY_OF_WEEK_LABELS[value]}
-                    </SelectValue>
+                    <SelectValue>{(value: DayOfWeek) => DAY_OF_WEEK_LABELS[value]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
                     {Object.entries(DAY_OF_WEEK_LABELS).map(([value, label]) => (
@@ -748,7 +845,7 @@ function TimeSlotsTab({
               </Field>
 
               <Field data-invalid={!!errors.startTime}>
-                <FieldLabel htmlFor="time-slot-start">Início</FieldLabel>
+                <FieldLabel htmlFor="time-slot-start">{t("formStart")}</FieldLabel>
                 <TimeSelect
                   id="time-slot-start"
                   value={startTime}
@@ -758,7 +855,7 @@ function TimeSlotsTab({
               </Field>
 
               <Field data-invalid={!!errors.endTime}>
-                <FieldLabel htmlFor="time-slot-end">Término</FieldLabel>
+                <FieldLabel htmlFor="time-slot-end">{t("formEnd")}</FieldLabel>
                 <TimeSelect
                   id="time-slot-end"
                   value={endTime}
@@ -773,7 +870,7 @@ function TimeSlotsTab({
                 </p>
               )}
               <Button type="submit" disabled={createMutation.isPending} className="btn-gold">
-                {createMutation.isPending ? "Salvando..." : "Salvar"}
+                {createMutation.isPending ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -783,18 +880,16 @@ function TimeSlotsTab({
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir horário?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O horário será removido permanentemente.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteTimeSlotTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteTimeSlotDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

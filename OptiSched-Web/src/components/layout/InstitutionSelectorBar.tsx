@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -14,6 +15,7 @@ import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 const INSTITUTIONS_QUERY_KEY = ["institutions"] as const;
 
 export function InstitutionSelectorBar() {
+  const { t } = useTranslation("appNavBar");
   const { data: institutions } = useQuery({
     queryKey: INSTITUTIONS_QUERY_KEY,
     queryFn: listInstitutions,
@@ -33,18 +35,18 @@ export function InstitutionSelectorBar() {
   return (
     <div className="border-b border-border/70 bg-secondary/40">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-        <span className="text-sm font-medium text-foreground">Instituição:</span>
+        <span className="text-sm font-medium text-foreground">{t("institutionSelectorLabel")}</span>
         <Select
           value={selectedInstitutionId !== null ? String(selectedInstitutionId) : ""}
           onValueChange={(value) => setSelectedInstitutionId(value ? Number(value) : null)}
         >
           <SelectTrigger className="w-64">
-            <SelectValue placeholder="Selecione uma instituição">
+            <SelectValue placeholder={t("selectInstitutionPlaceholder")}>
               {(value: string) =>
                 value
                   ? (institutions?.find((institution) => String(institution.id) === value)
                       ?.name ?? value)
-                  : "Selecione uma instituição"
+                  : t("selectInstitutionPlaceholder")
               }
             </SelectValue>
           </SelectTrigger>

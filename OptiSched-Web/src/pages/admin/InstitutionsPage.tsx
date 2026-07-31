@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +69,7 @@ function toInstitutionInput(values: InstitutionFormValues): InstitutionInput {
 }
 
 export function InstitutionsPage() {
+  const { t } = useTranslation("adminInstitutions");
   const queryClient = useQueryClient();
   const { data: institutions, isLoading } = useQuery({
     queryKey: INSTITUTIONS_QUERY_KEY,
@@ -153,9 +155,7 @@ export function InstitutionsPage() {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError(
-        "Não foi possível salvar a instituição. Verifique os dados e tente novamente."
-      );
+      setFormError(t("saveInstitutionError"));
     }
   }
 
@@ -165,14 +165,12 @@ export function InstitutionsPage() {
     <div>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-primary">Instituições</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gerencie as instituições (tenants) cadastradas na plataforma.
-          </p>
+          <h1 className="text-xl font-semibold text-primary">{t("title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button onClick={openCreateSheet} className="btn-gold">
           <Plus className="size-4" />
-          Nova instituição
+          {t("newInstitution")}
         </Button>
       </div>
 
@@ -180,25 +178,25 @@ export function InstitutionsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>CNPJ</TableHead>
-              <TableHead>Assinatura</TableHead>
-              <TableHead>Expira em</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnName")}</TableHead>
+              <TableHead>{t("columnCnpj")}</TableHead>
+              <TableHead>{t("columnSubscription")}</TableHead>
+              <TableHead>{t("columnExpiresAt")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -218,6 +216,7 @@ export function InstitutionsPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    aria-label={t("editInstitutionAriaLabel")}
                     onClick={() => openEditSheet(institution)}
                   >
                     <Pencil className="size-4" />
@@ -225,6 +224,7 @@ export function InstitutionsPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    aria-label={t("deleteInstitutionAriaLabel")}
                     onClick={() => setDeletingInstitution(institution)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -240,12 +240,12 @@ export function InstitutionsPage() {
         <SheetContent>
           <SheetHeader>
             <SheetTitle>
-              {editingInstitution ? "Editar instituição" : "Nova instituição"}
+              {editingInstitution ? t("editInstitutionTitle") : t("newInstitutionTitle")}
             </SheetTitle>
             <SheetDescription>
               {editingInstitution
-                ? "Atualize os dados da instituição."
-                : "Cadastre uma nova instituição (tenant) na plataforma."}
+                ? t("editInstitutionDescription")
+                : t("newInstitutionDescription")}
             </SheetDescription>
           </SheetHeader>
 
@@ -253,23 +253,23 @@ export function InstitutionsPage() {
             <div className="flex-1 px-4">
               <FieldGroup>
                 <Field data-invalid={!!errors.name}>
-                  <FieldLabel htmlFor="institution-name">Nome</FieldLabel>
+                  <FieldLabel htmlFor="institution-name">{t("formName")}</FieldLabel>
                   <Input id="institution-name" {...register("name")} />
                   <FieldError errors={[errors.name]} />
                 </Field>
 
                 <Field data-invalid={!!errors.cnpj}>
-                  <FieldLabel htmlFor="institution-cnpj">CNPJ</FieldLabel>
+                  <FieldLabel htmlFor="institution-cnpj">{t("formCnpj")}</FieldLabel>
                   <Input
                     id="institution-cnpj"
-                    placeholder="Somente números"
+                    placeholder={t("formCnpjPlaceholder")}
                     {...register("cnpj")}
                   />
                   <FieldError errors={[errors.cnpj]} />
                 </Field>
 
                 <Field data-invalid={!!errors.subscriptionStatus}>
-                  <FieldLabel htmlFor="institution-status">Status da assinatura</FieldLabel>
+                  <FieldLabel htmlFor="institution-status">{t("formSubscriptionStatus")}</FieldLabel>
                   <Select
                     value={subscriptionStatus}
                     onValueChange={(value) =>
@@ -291,7 +291,7 @@ export function InstitutionsPage() {
                 </Field>
 
                 <Field data-invalid={!!errors.expiresAt}>
-                  <FieldLabel htmlFor="institution-expires-at">Expira em</FieldLabel>
+                  <FieldLabel htmlFor="institution-expires-at">{t("formExpiresAt")}</FieldLabel>
                   <DatePickerField
                     id="institution-expires-at"
                     value={expiresAt ?? ""}
@@ -311,7 +311,7 @@ export function InstitutionsPage() {
 
             <SheetFooter>
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </SheetFooter>
           </form>
@@ -324,19 +324,18 @@ export function InstitutionsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir instituição?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteInstitutionTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. A instituição "{deletingInstitution?.name}" será
-              removida permanentemente.
+              {t("deleteInstitutionDescription", { name: deletingInstitution?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingInstitution && deleteMutation.mutate(deletingInstitution.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

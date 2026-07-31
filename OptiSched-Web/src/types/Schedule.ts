@@ -1,3 +1,5 @@
+import type { ScheduleEntry } from "@/types/ScheduleEntry";
+
 export type ScheduleStatus = "ACTIVE" | "INACTIVE";
 
 export type Schedule = {
@@ -5,4 +7,30 @@ export type Schedule = {
   semesterId: number;
   generatedAt: string;
   status: ScheduleStatus;
+  version: number;
+};
+
+export type EntryDiff = {
+  subjectOfferingId: number;
+  subjectName: string;
+  courseName: string;
+  before: ScheduleEntry[];
+  after: ScheduleEntry[];
+};
+
+export type ScheduleComparison = {
+  changed: EntryDiff[];
+  onlyInA: ScheduleEntry[];
+  onlyInB: ScheduleEntry[];
+};
+
+export type PreferredShift = "MORNING" | "AFTERNOON" | "EVENING";
+
+export type ScheduleGenerationOptions = {
+  compactSchedule: number;
+  weeklyDistribution: number;
+  subjectBlocking: number;
+  classroomStability: number;
+  preferredShift: PreferredShift | null;
+  preferredShiftWeight: number | null;
 };

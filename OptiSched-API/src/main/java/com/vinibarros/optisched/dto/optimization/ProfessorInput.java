@@ -9,6 +9,8 @@ import java.util.List;
 public record ProfessorInput(
         Long id,
         List<Long> qualifiedSubjectIds,
-        List<Long> availableTimeSlotIds
+        List<Long> availableTimeSlotIds,
+        Integer maxDailyTimeSlots,
+        Integer maxWeeklyTimeSlots
 )
 {}

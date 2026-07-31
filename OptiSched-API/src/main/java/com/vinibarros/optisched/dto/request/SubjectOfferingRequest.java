@@ -6,7 +6,7 @@ public record SubjectOfferingRequest(
         @NotNull Long courseId,
         @NotNull Long subjectId,
         @NotNull Long semesterId,
-        @NotBlank String section,
+        @NotBlank @Size(max = 20) String section,
         @NotNull @Positive Integer expectedStudents,
         @NotNull @Min(1) Integer recommendedSemester
         )

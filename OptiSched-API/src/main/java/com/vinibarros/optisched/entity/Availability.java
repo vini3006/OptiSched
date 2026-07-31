@@ -12,7 +12,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Availability {
+public class Availability extends Auditable {
 
     @EmbeddedId
     private AvailabilityId id = new AvailabilityId();

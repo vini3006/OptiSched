@@ -1,6 +1,7 @@
 package com.vinibarros.optisched.controller;
 
 import com.vinibarros.optisched.dto.request.ScheduleRequest;
+import com.vinibarros.optisched.dto.response.ScheduleComparisonResponse;
 import com.vinibarros.optisched.dto.response.ScheduleResponse;
 import com.vinibarros.optisched.service.ScheduleService;
 import com.vinibarros.optisched.util.MultiTenantUtils;
@@ -22,6 +23,23 @@ public class ScheduleController {
         this.scheduleService = scheduleService;
     }
 
+    @GetMapping("/active")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'PROFESSOR')")
+    public ResponseEntity<ScheduleResponse> findActive(
+            @RequestParam(required = false) Long institutionIdSuperAdmin,
+            @RequestAttribute(required = false) Long institutionIdAdmin,
+            @RequestAttribute(required = false) Long institutionIdProfessor) {
+
+        Long targetInstitutionId = MultiTenantUtils.resolveInstitutionId(
+                "fetch active schedule",
+                institutionIdAdmin,
+                institutionIdProfessor,
+                institutionIdSuperAdmin
+        );
+
+        return ResponseEntity.ok(scheduleService.findActive(targetInstitutionId));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ScheduleResponse> findById(
@@ -41,6 +59,7 @@ public class ScheduleController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<ScheduleResponse>> findAll(
+            @RequestParam(required = false) Long semesterId,
             @RequestParam(required = false) Long institutionIdSuperAdmin,
             @RequestAttribute(required = false) Long institutionIdAdmin) {
 
@@ -50,7 +69,24 @@ public class ScheduleController {
                 institutionIdSuperAdmin
         );
 
-        return ResponseEntity.ok(scheduleService.findAll(targetInstitutionId));
+        return ResponseEntity.ok(scheduleService.findAll(targetInstitutionId, semesterId));
+    }
+
+    @GetMapping("/{id}/compare/{otherId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ScheduleComparisonResponse> compare(
+            @PathVariable Long id,
+            @PathVariable Long otherId,
+            @RequestParam(required = false) Long institutionIdSuperAdmin,
+            @RequestAttribute(required = false) Long institutionIdAdmin) {
+
+        Long targetInstitutionId = MultiTenantUtils.resolveInstitutionId(
+                "compare schedules",
+                institutionIdAdmin,
+                institutionIdSuperAdmin
+        );
+
+        return ResponseEntity.ok(scheduleService.compare(id, otherId, targetInstitutionId));
     }
 
     @PatchMapping("/{id}/status")

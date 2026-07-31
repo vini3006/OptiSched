@@ -1,5 +1,7 @@
 package com.vinibarros.optisched.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
@@ -49,6 +53,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidTimeSlotException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidTimeSlot(InvalidTimeSlotException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidResetTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidResetToken(InvalidResetTokenException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidScheduleEntryException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidScheduleEntry(InvalidScheduleEntryException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidSemesterException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidSemester(InvalidSemesterException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
@@ -91,9 +110,24 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    /**
+     * Safety net for any DB constraint violation that slips past a service's
+     * own validation (or a service that has none for that specific case) —
+     * turns what would otherwise be an opaque 500 into a clean, generic 409
+     * instead of leaking a raw SQL/constraint message to the client.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Unhandled data integrity violation", ex);
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "This action conflicts with something already in the schedule. Please refresh and try again."
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        ex.printStackTrace();
+        log.error("Unhandled exception", ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }
 

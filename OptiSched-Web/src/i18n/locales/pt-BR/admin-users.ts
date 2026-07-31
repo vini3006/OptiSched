@@ -1,0 +1,55 @@
+export default {
+  title: "Usuários",
+  subtitleSuperAdmin:
+    "Crie contas de Super Admin, Admin e Professor, e gerencie os usuários de cada instituição.",
+  subtitleAdmin: "Crie contas de Professor e gerencie os usuários da sua instituição.",
+  newSuperAdmin: "Novo Super Admin",
+  newAdmin: "Novo Admin",
+  newProfessor: "Novo Professor",
+  selectInstitutionNotice: "Selecione uma instituição para ver seus usuários.",
+
+  newAdminDialogTitle: "Novo Admin",
+  newAdminDialogDescription: "Cria uma conta de Admin para a instituição selecionada.",
+  newProfessorDialogTitle: "Novo Professor",
+  newProfessorDialogDescription: "Cria uma conta de Professor para a instituição selecionada.",
+  newSuperAdminDialogTitle: "Novo Super Admin",
+  newSuperAdminDialogDescription: "Cria uma nova conta com acesso total à plataforma.",
+  createAdmin: "Criar Admin",
+  createProfessor: "Criar Professor",
+  createSuperAdmin: "Criar Super Admin",
+
+  columnInstitution: "Instituição",
+  columnUsers: "Usuários",
+  columnActions: "Ações",
+  columnName: "Nome",
+  columnEmail: "E-mail",
+  columnRole: "Papel",
+  noInstitutions: "Nenhuma instituição cadastrada.",
+  userCount_one: "{{count}} usuário",
+  userCount_other: "{{count}} usuários",
+  viewUsers: "Ver usuários",
+
+  usersOfInstitution: "Usuários de {{institution}}",
+  allUsersOfInstitution: "Todos os usuários dessa instituição.",
+  noUsersInInstitution: "Nenhum usuário nessa instituição.",
+  noUsersInInstitutionTable: "Nenhum usuário nessa instituição.",
+  deleteUserAriaLabel: "Excluir usuário {{name}}",
+  deleteUserTitle: "Excluir usuário?",
+  deleteUserDescription:
+    'Essa ação não pode ser desfeita. O usuário "{{name}}" perderá o acesso imediatamente.',
+  deleteUserError: "Não foi possível excluir o usuário. Tente novamente.",
+  createUserError: "Não foi possível criar o usuário. Verifique os dados e tente novamente.",
+
+  professorCsvColumns: {
+    name: "Nome completo do professor.",
+    email: "E-mail de login do professor (deve ser único).",
+    password: "Senha inicial de acesso do professor.",
+    maxDailyTimeSlots: "Máximo de aulas por dia (opcional, deixe em branco para não limitar).",
+    maxWeeklyTimeSlots: "Máximo de aulas por semana (opcional, deixe em branco para não limitar).",
+  },
+
+  formName: "Nome",
+  formEmail: "E-mail",
+  formPassword: "Senha",
+  creating: "Criando...",
+} as const;

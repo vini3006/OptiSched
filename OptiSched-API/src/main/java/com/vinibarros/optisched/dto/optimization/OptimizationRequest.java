@@ -11,6 +11,8 @@ public record OptimizationRequest(
         List<SubjectOfferingInput> subjectOfferings,
         List<ClassroomInput> classrooms,
         List<TimeSlotInput> timeSlots,
-        ObjectiveWeightsInput objectiveWeights
+        ObjectiveWeightsInput objectiveWeights,
+        List<Long> preferredTimeSlotIds,
+        List<LockedAssignmentInput> lockedAssignments
 )
 {}

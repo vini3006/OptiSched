@@ -1,10 +1,9 @@
 package com.vinibarros.optisched;
 
+import com.vinibarros.optisched.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class OptischedApiApplicationTests {
+class OptischedApiApplicationTests extends AbstractIntegrationTest {
 
 	@Test
 	void contextLoads() {

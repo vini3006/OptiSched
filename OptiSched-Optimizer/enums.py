@@ -8,3 +8,7 @@ class DayOfWeek(StrEnum):
     FRIDAY = "FRIDAY"
     SATURDAY = "SATURDAY"
     SUNDAY = "SUNDAY"
+
+class RoomType(StrEnum):
+    COMMON = "COMMON"
+    LABORATORY = "LABORATORY"

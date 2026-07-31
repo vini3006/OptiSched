@@ -13,4 +13,5 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     boolean existsByNameAndInstitutionId(String name, Long institutionId);
     List<Course> findAllByInstitutionId(Long institutionId);
     Optional<Course> findByIdAndInstitutionId(Long id, Long institutionId);
+    Optional<Course> findByNameAndInstitutionId(String name, Long institutionId);
 }

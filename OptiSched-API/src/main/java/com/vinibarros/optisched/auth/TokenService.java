@@ -10,22 +10,27 @@ import java.time.Instant;
 @Service
 public class TokenService {
 
+    // Kept in sync with the "access_token" cookie's maxAge in AuthController —
+    // the cookie must not outlive the JWT it carries, or the client looks
+    // logged in while every request 401s.
+    public static final long EXPIRES_IN_SECONDS = 60L * 60 * 8; // 8 horas
+
     private final JwtEncoder jwtEncoder;
 
     public TokenService(JwtEncoder jwtEncoder) {
         this.jwtEncoder = jwtEncoder;
     }
 
-    public String generateToken(Long userId, String email, Long institutionId, String role, Long professorId) {
+    public String generateToken(Long userId, String email, String name, Long institutionId, String role, Long professorId) {
         Instant now = Instant.now();
-        long expiresIn = 3600L; // 1 hora
 
         JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
                 .issuer("optisched-api")
                 .subject(email)
                 .issuedAt(now)
-                .expiresAt(now.plusSeconds(expiresIn))
+                .expiresAt(now.plusSeconds(EXPIRES_IN_SECONDS))
                 .claim("user_id", userId)
+                .claim("name", name)
                 .claim("role", role)
                 .claim("scope", "ROLE_" + role);
 

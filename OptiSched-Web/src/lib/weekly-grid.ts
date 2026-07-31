@@ -1,5 +1,5 @@
-import { DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
-import type { DayOfWeek } from "@/types/TimeSlot";
+import { DAY_OF_WEEK_ORDER, WEEKDAY_ORDER } from "@/lib/enum-labels";
+import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
 import type { ScheduleEntry } from "@/types/ScheduleEntry";
 
 export type WeeklyGridRow = { startTime: string; endTime: string };
@@ -29,4 +29,24 @@ export function getWeeklyGridDimensions(entries: ScheduleEntry[]): WeeklyGridDim
   const days = DAY_OF_WEEK_ORDER.filter((day) => daysPresent.has(day));
 
   return { days, rows };
+}
+
+/**
+ * Computa as dimensões de um calendário fixo de segunda a sexta, com as
+ * linhas de horário vindas do catálogo de TimeSlots da instituição (não das
+ * entries do professor) — assim os dias sem aula continuam aparecendo,
+ * em vez de somem do calendário, o que ajudaria o professor a se perder.
+ */
+export function getFullWeekGridDimensions(timeSlots: TimeSlot[]): WeeklyGridDimensions {
+  const rowsMap = new Map<string, WeeklyGridRow>();
+  for (const timeSlot of timeSlots) {
+    if (!WEEKDAY_ORDER.includes(timeSlot.dayOfWeek)) continue;
+    const key = `${timeSlot.startTime}-${timeSlot.endTime}`;
+    if (!rowsMap.has(key)) {
+      rowsMap.set(key, { startTime: timeSlot.startTime, endTime: timeSlot.endTime });
+    }
+  }
+  const rows = [...rowsMap.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  return { days: WEEKDAY_ORDER, rows };
 }

@@ -54,6 +54,7 @@ public class AuthService {
         String token = tokenService.generateToken(
                 user.getId(),
                 user.getEmail(),
+                user.getName(),
                 institutionId,
                 user.getRole().name(),
                 professorId
@@ -63,6 +64,7 @@ public class AuthService {
                 token,
                 user.getId(),
                 user.getEmail(),
+                user.getName(),
                 user.getRole().name(),
                 institutionId,
                 professorId

@@ -46,6 +46,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       OPTIMIZER_URL: http://optimizer:8000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PRIVATE_KEY: file:/app.key
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY: file:/app.pub
       SPRING_FLYWAY_PLACEHOLDERS_SUPERADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
@@ -55,6 +56,12 @@ services:
     volumes:
       - ./app.key:/app.key
       - ./app.pub:/app.pub
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy

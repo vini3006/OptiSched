@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,7 +43,15 @@ import {
 } from "@/components/ui/table";
 
 import { createCourse, deleteCourse, listCourses, updateCourse } from "@/api/courses";
-import { createSubject, deleteSubject, listSubjects, updateSubject } from "@/api/subjects";
+import {
+  createSubject,
+  deleteSubject,
+  exportSubjectsCsv,
+  importSubjectsCsv,
+  listSubjects,
+  updateSubject,
+} from "@/api/subjects";
+import { CsvImportExport, type CsvColumnSpec } from "@/components/admin/CsvImportExport";
 import {
   createSemester,
   deleteSemester,
@@ -52,6 +61,8 @@ import {
 import {
   createSubjectOffering,
   deleteSubjectOffering,
+  exportSubjectOfferingsCsv,
+  importSubjectOfferingsCsv,
   listSubjectOfferings,
   updateSubjectOffering,
 } from "@/api/subject-offerings";
@@ -65,35 +76,60 @@ import {
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
-import { TERM_LABELS } from "@/lib/enum-labels";
+import { DatePickerField } from "@/components/ui/date-picker";
+import { ROOM_TYPE_LABELS, TERM_LABELS } from "@/lib/enum-labels";
+import type { RoomType } from "@/types/Classroom";
 import type { Course } from "@/types/Course";
 import type { Subject } from "@/types/Subject";
-import type { Semester, Term } from "@/types/Semester";
+import type { Semester, SemesterInput, Term } from "@/types/Semester";
 import type { SubjectOffering } from "@/types/SubjectOffering";
 
 function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
+function useSubjectCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminAcademicStructure");
+  return [
+    { name: "code", description: t("subjects.csvColumns.code") },
+    { name: "name", description: t("subjects.csvColumns.name") },
+    { name: "workload", description: t("subjects.csvColumns.workload") },
+    { name: "requiredRoomType", description: t("subjects.csvColumns.requiredRoomType") },
+  ];
+}
+
+function useSubjectOfferingCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminAcademicStructure");
+  return [
+    { name: "courseName", description: t("offerings.csvColumns.courseName") },
+    { name: "subjectCode", description: t("offerings.csvColumns.subjectCode") },
+    { name: "semesterYear", description: t("offerings.csvColumns.semesterYear") },
+    { name: "semesterTerm", description: t("offerings.csvColumns.semesterTerm") },
+    { name: "section", description: t("offerings.csvColumns.section") },
+    { name: "expectedStudents", description: t("offerings.csvColumns.expectedStudents") },
+    { name: "recommendedSemester", description: t("offerings.csvColumns.recommendedSemester") },
+  ];
+}
+
 export function AcademicStructurePage() {
+  const { t } = useTranslation("adminAcademicStructure");
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-primary">Estrutura Acadêmica</h1>
+      <h1 className="text-xl font-semibold text-primary">{t("pageTitle")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie cursos, disciplinas, semestres e as ofertas de disciplina
-        {isSuperAdmin ? " de cada instituição." : " da instituição selecionada."}
+        {isSuperAdmin ? t("pageSubtitleSuperAdmin") : t("pageSubtitleAdmin")}
       </p>
 
       <Tabs defaultValue="cursos" className="mt-6">
         <TabsList>
-          <TabsTrigger value="cursos">Cursos</TabsTrigger>
-          <TabsTrigger value="disciplinas">Disciplinas</TabsTrigger>
-          <TabsTrigger value="semestres">Semestres</TabsTrigger>
-          <TabsTrigger value="ofertas">Ofertas</TabsTrigger>
+          <TabsTrigger value="cursos">{t("tabCursos")}</TabsTrigger>
+          <TabsTrigger value="disciplinas">{t("tabDisciplinas")}</TabsTrigger>
+          <TabsTrigger value="semestres">{t("tabSemestres")}</TabsTrigger>
+          <TabsTrigger value="ofertas">{t("tabOfertas")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cursos" className="mt-4">
@@ -102,7 +138,7 @@ export function AcademicStructurePage() {
           ) : selectedInstitutionId ? (
             <CoursesTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver os cursos." />
+            <EmptyInstitutionNotice text={t("selectInstitutionCourses")} />
           )}
         </TabsContent>
 
@@ -112,7 +148,7 @@ export function AcademicStructurePage() {
           ) : selectedInstitutionId ? (
             <SubjectsTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver as disciplinas." />
+            <EmptyInstitutionNotice text={t("selectInstitutionSubjects")} />
           )}
         </TabsContent>
 
@@ -122,7 +158,7 @@ export function AcademicStructurePage() {
           ) : selectedInstitutionId ? (
             <SemestersTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver os semestres." />
+            <EmptyInstitutionNotice text={t("selectInstitutionSemesters")} />
           )}
         </TabsContent>
 
@@ -132,7 +168,7 @@ export function AcademicStructurePage() {
           ) : selectedInstitutionId ? (
             <OfferingsGroupedByCourse institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver as ofertas de disciplina." />
+            <EmptyInstitutionNotice text={t("selectInstitutionOfferings")} />
           )}
         </TabsContent>
       </Tabs>
@@ -145,6 +181,7 @@ export function AcademicStructurePage() {
 // ---------------------------------------------------------------------------
 
 function CoursesGroupedByInstitution() {
+  const { t } = useTranslation("adminAcademicStructure");
   const { institutions, itemsByInstitution: coursesByInstitution, isLoading } =
     useGroupedByInstitution("courses", listCourses);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
@@ -156,23 +193,23 @@ function CoursesGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Cursos</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("courses.columnHeader")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -181,16 +218,14 @@ function CoursesGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "curso" : "cursos"}
-                  </TableCell>
+                  <TableCell>{t("courses.count", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver cursos
+                      {t("courses.view")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -206,8 +241,8 @@ function CoursesGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Cursos de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Gerencie os cursos dessa instituição.</DialogDescription>
+            <DialogTitle>{t("courses.ofInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("courses.manageInInstitution")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && <CoursesTab institutionId={viewingInstitutionId} />}
@@ -219,6 +254,7 @@ function CoursesGroupedByInstitution() {
 }
 
 function CoursesTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminAcademicStructure");
   const queryClient = useQueryClient();
   const queryKey = ["courses", institutionId] as const;
 
@@ -295,7 +331,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError("Não foi possível salvar o curso. Tente novamente.");
+      setFormError(t("courses.saveError"));
     }
   }
 
@@ -306,7 +342,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
       <div className="flex justify-end">
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Novo curso
+          {t("courses.new")}
         </Button>
       </div>
 
@@ -314,23 +350,23 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Total de semestres</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnName")}</TableHead>
+              <TableHead>{t("courses.columnTotalSemesters")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && courses?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhum curso cadastrado.
+                  {t("courses.noneRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -339,10 +375,20 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
                 <TableCell className="font-medium">{course.name}</TableCell>
                 <TableCell>{course.totalSemesters}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(course)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("courses.editAriaLabel", { name: course.name })}
+                    onClick={() => openEdit(course)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleting(course)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("courses.deleteAriaLabel", { name: course.name })}
+                    onClick={() => setDeleting(course)}
+                  >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -355,20 +401,20 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar curso" : "Novo curso"}</DialogTitle>
+            <DialogTitle>{editing ? t("courses.editDialogTitle") : t("courses.newDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {editing ? "Atualize os dados do curso." : "Cadastre um novo curso."}
+              {editing ? t("courses.editDialogDescription") : t("courses.newDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.name}>
-                <FieldLabel htmlFor="course-name">Nome</FieldLabel>
+                <FieldLabel htmlFor="course-name">{t("columnName")}</FieldLabel>
                 <Input id="course-name" {...register("name")} />
                 <FieldError errors={[errors.name]} />
               </Field>
               <Field data-invalid={!!errors.totalSemesters}>
-                <FieldLabel htmlFor="course-total-semesters">Total de semestres</FieldLabel>
+                <FieldLabel htmlFor="course-total-semesters">{t("courses.columnTotalSemesters")}</FieldLabel>
                 <Input
                   id="course-total-semesters"
                   type="number"
@@ -383,7 +429,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
                 </p>
               )}
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -393,19 +439,18 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir curso?</AlertDialogTitle>
+            <AlertDialogTitle>{t("courses.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O curso "{deleting?.name}" será removido
-              permanentemente.
+              {t("courses.deleteDescription", { name: deleting?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -419,6 +464,7 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function SubjectsGroupedByInstitution() {
+  const { t } = useTranslation("adminAcademicStructure");
   const { institutions, itemsByInstitution: subjectsByInstitution, isLoading } =
     useGroupedByInstitution("subjects", listSubjects);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
@@ -430,23 +476,23 @@ function SubjectsGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Disciplinas</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("subjects.columnHeader")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -455,16 +501,14 @@ function SubjectsGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "disciplina" : "disciplinas"}
-                  </TableCell>
+                  <TableCell>{t("subjects.count", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver disciplinas
+                      {t("subjects.view")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -480,8 +524,8 @@ function SubjectsGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Disciplinas de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Gerencie as disciplinas dessa instituição.</DialogDescription>
+            <DialogTitle>{t("subjects.ofInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("subjects.manageInInstitution")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && <SubjectsTab institutionId={viewingInstitutionId} />}
@@ -493,6 +537,8 @@ function SubjectsGroupedByInstitution() {
 }
 
 function SubjectsTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminAcademicStructure");
+  const subjectCsvColumns = useSubjectCsvColumns();
   const queryClient = useQueryClient();
   const queryKey = ["subjects", institutionId] as const;
 
@@ -510,11 +556,14 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<SubjectFormValues>({
     resolver: zodResolver(subjectSchema),
-    defaultValues: { code: "", name: "", workload: 0 },
+    defaultValues: { code: "", name: "", workload: 0, requiredRoomType: null },
   });
+  const requiredRoomType = watch("requiredRoomType");
 
   const createMutation = useMutation({
     mutationFn: (values: SubjectFormValues) => createSubject(values, institutionId),
@@ -544,14 +593,19 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ code: "", name: "", workload: 0 });
+    reset({ code: "", name: "", workload: 0, requiredRoomType: null });
     setDialogOpen(true);
   }
 
   function openEdit(subject: Subject) {
     setEditing(subject);
     setFormError(null);
-    reset({ code: subject.code, name: subject.name, workload: subject.workload });
+    reset({
+      code: subject.code,
+      name: subject.name,
+      workload: subject.workload,
+      requiredRoomType: subject.requiredRoomType,
+    });
     setDialogOpen(true);
   }
 
@@ -569,7 +623,7 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError("Não foi possível salvar a disciplina. Tente novamente.");
+      setFormError(t("subjects.saveError"));
     }
   }
 
@@ -577,10 +631,18 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <CsvImportExport
+          onImport={(file) => importSubjectsCsv(file, institutionId)}
+          onExport={() => exportSubjectsCsv(institutionId)}
+          exportFilename="disciplinas.csv"
+          onImported={() => queryClient.invalidateQueries({ queryKey })}
+          entityLabel="disciplinas"
+          columns={subjectCsvColumns}
+        />
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Nova disciplina
+          {t("subjects.new")}
         </Button>
       </div>
 
@@ -588,24 +650,25 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nome</TableHead>
-              <TableHead>Carga horária</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("subjects.columnCode")}</TableHead>
+              <TableHead>{t("columnName")}</TableHead>
+              <TableHead>{t("subjects.columnWorkload")}</TableHead>
+              <TableHead>{t("subjects.columnRequiredRoom")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Carregando...
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && subjects?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Nenhuma disciplina cadastrada.
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  {t("subjects.noneRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -613,14 +676,25 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
               <TableRow key={subject.id}>
                 <TableCell className="font-medium">{subject.code}</TableCell>
                 <TableCell>{subject.name}</TableCell>
+                <TableCell>{t("subjects.workload", { count: subject.workload })}</TableCell>
                 <TableCell>
-                  {subject.workload} {subject.workload === 1 ? "tempo" : "tempos"} de aula
+                  {subject.requiredRoomType ? ROOM_TYPE_LABELS[subject.requiredRoomType] : t("subjects.noRoomPreference")}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(subject)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("subjects.editAriaLabel", { name: subject.name })}
+                    onClick={() => openEdit(subject)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleting(subject)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("subjects.deleteAriaLabel", { name: subject.name })}
+                    onClick={() => setDeleting(subject)}
+                  >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -633,25 +707,25 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar disciplina" : "Nova disciplina"}</DialogTitle>
+            <DialogTitle>{editing ? t("subjects.editDialogTitle") : t("subjects.newDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {editing ? "Atualize os dados da disciplina." : "Cadastre uma nova disciplina."}
+              {editing ? t("subjects.editDialogDescription") : t("subjects.newDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.code}>
-                <FieldLabel htmlFor="subject-code">Código</FieldLabel>
+                <FieldLabel htmlFor="subject-code">{t("subjects.columnCode")}</FieldLabel>
                 <Input id="subject-code" {...register("code")} />
                 <FieldError errors={[errors.code]} />
               </Field>
               <Field data-invalid={!!errors.name}>
-                <FieldLabel htmlFor="subject-name">Nome</FieldLabel>
+                <FieldLabel htmlFor="subject-name">{t("columnName")}</FieldLabel>
                 <Input id="subject-name" {...register("name")} />
                 <FieldError errors={[errors.name]} />
               </Field>
               <Field data-invalid={!!errors.workload}>
-                <FieldLabel htmlFor="subject-workload">Carga Horária (Tempos de aula)</FieldLabel>
+                <FieldLabel htmlFor="subject-workload">{t("subjects.formWorkloadLabel")}</FieldLabel>
                 <Input
                   id="subject-workload"
                   type="number"
@@ -660,13 +734,39 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
                 />
                 <FieldError errors={[errors.workload]} />
               </Field>
+              <Field data-invalid={!!errors.requiredRoomType}>
+                <FieldLabel htmlFor="subject-required-room-type">{t("subjects.formRequiredRoomTypeLabel")}</FieldLabel>
+                <Select
+                  value={requiredRoomType ?? "NONE"}
+                  onValueChange={(value) =>
+                    setValue("requiredRoomType", value === "NONE" ? null : (value as RoomType))
+                  }
+                >
+                  <SelectTrigger id="subject-required-room-type" className="w-full">
+                    <SelectValue>
+                      {(value: string) =>
+                        value === "NONE" ? t("subjects.noRoomTypePreferenceOption") : ROOM_TYPE_LABELS[value as RoomType]
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                    <SelectItem value="NONE">{t("subjects.noRoomTypePreferenceOption")}</SelectItem>
+                    {Object.entries(ROOM_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError errors={[errors.requiredRoomType]} />
+              </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
                   {formError}
                 </p>
               )}
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -676,19 +776,18 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir disciplina?</AlertDialogTitle>
+            <AlertDialogTitle>{t("subjects.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. A disciplina "{deleting?.name}" será removida
-              permanentemente.
+              {t("subjects.deleteDescription", { name: deleting?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -702,6 +801,7 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function SemestersGroupedByInstitution() {
+  const { t } = useTranslation("adminAcademicStructure");
   const { institutions, itemsByInstitution: semestersByInstitution, isLoading } =
     useGroupedByInstitution("semesters", listSemesters);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
@@ -713,23 +813,23 @@ function SemestersGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Semestres</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("semesters.columnHeader")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -738,16 +838,14 @@ function SemestersGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "semestre" : "semestres"}
-                  </TableCell>
+                  <TableCell>{t("semesters.count", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver semestres
+                      {t("semesters.view")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -763,8 +861,8 @@ function SemestersGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Semestres de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Gerencie os semestres dessa instituição.</DialogDescription>
+            <DialogTitle>{t("semesters.ofInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("semesters.manageInInstitution")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && (
@@ -778,6 +876,7 @@ function SemestersGroupedByInstitution() {
 }
 
 function SemestersTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminAcademicStructure");
   const queryClient = useQueryClient();
   const queryKey = ["semesters", institutionId] as const;
 
@@ -800,13 +899,24 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
     formState: { errors },
   } = useForm<SemesterFormValues>({
     resolver: zodResolver(semesterSchema),
-    defaultValues: { year: new Date().getFullYear(), term: "FIRST" },
+    defaultValues: { year: new Date().getFullYear(), term: "FIRST", startDate: "", endDate: "" },
   });
 
   const term = watch("term");
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
+
+  function toSemesterInput(values: SemesterFormValues): SemesterInput {
+    return {
+      year: values.year,
+      term: values.term,
+      startDate: values.startDate || null,
+      endDate: values.endDate || null,
+    };
+  }
 
   const createMutation = useMutation({
-    mutationFn: (values: SemesterFormValues) => createSemester(values, institutionId),
+    mutationFn: (values: SemesterFormValues) => createSemester(toSemesterInput(values), institutionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeDialog();
@@ -815,7 +925,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: number; input: SemesterFormValues }) =>
-      updateSemester(id, input, institutionId),
+      updateSemester(id, toSemesterInput(input), institutionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeDialog();
@@ -833,14 +943,19 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ year: new Date().getFullYear(), term: "FIRST" });
+    reset({ year: new Date().getFullYear(), term: "FIRST", startDate: "", endDate: "" });
     setDialogOpen(true);
   }
 
   function openEdit(semester: Semester) {
     setEditing(semester);
     setFormError(null);
-    reset({ year: semester.year, term: semester.term });
+    reset({
+      year: semester.year,
+      term: semester.term,
+      startDate: semester.startDate ?? "",
+      endDate: semester.endDate ?? "",
+    });
     setDialogOpen(true);
   }
 
@@ -858,7 +973,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError("Não foi possível salvar o semestre. Tente novamente.");
+      setFormError(t("semesters.saveError"));
     }
   }
 
@@ -869,7 +984,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
       <div className="flex justify-end">
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Novo semestre
+          {t("semesters.new")}
         </Button>
       </div>
 
@@ -877,23 +992,23 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Ano</TableHead>
-              <TableHead>Período</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("semesters.columnYear")}</TableHead>
+              <TableHead>{t("semesters.columnTerm")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && semesters?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhum semestre cadastrado.
+                  {t("semesters.noneRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -902,10 +1017,20 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
                 <TableCell className="font-medium">{semester.year}</TableCell>
                 <TableCell>{TERM_LABELS[semester.term]}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(semester)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("semesters.editAriaLabel", { year: semester.year, term: semester.term })}
+                    onClick={() => openEdit(semester)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleting(semester)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("semesters.deleteAriaLabel", { year: semester.year, term: semester.term })}
+                    onClick={() => setDeleting(semester)}
+                  >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -918,15 +1043,15 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar semestre" : "Novo semestre"}</DialogTitle>
+            <DialogTitle>{editing ? t("semesters.editDialogTitle") : t("semesters.newDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {editing ? "Atualize os dados do semestre." : "Cadastre um novo semestre letivo."}
+              {editing ? t("semesters.editDialogDescription") : t("semesters.newDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.year}>
-                <FieldLabel htmlFor="semester-year">Ano</FieldLabel>
+                <FieldLabel htmlFor="semester-year">{t("semesters.columnYear")}</FieldLabel>
                 <Input
                   id="semester-year"
                   type="number"
@@ -935,7 +1060,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
                 <FieldError errors={[errors.year]} />
               </Field>
               <Field data-invalid={!!errors.term}>
-                <FieldLabel htmlFor="semester-term">Período</FieldLabel>
+                <FieldLabel htmlFor="semester-term">{t("semesters.columnTerm")}</FieldLabel>
                 <Select
                   value={term}
                   onValueChange={(value) => setValue("term", value as SemesterFormValues["term"])}
@@ -953,13 +1078,34 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
                 </Select>
                 <FieldError errors={[errors.term]} />
               </Field>
+              <Field data-invalid={!!errors.startDate}>
+                <FieldLabel htmlFor="semester-start-date">{t("semesters.formStartDateLabel")}</FieldLabel>
+                <DatePickerField
+                  id="semester-start-date"
+                  value={startDate ?? ""}
+                  onChange={(value) => setValue("startDate", value)}
+                  aria-invalid={!!errors.startDate}
+                />
+                <FieldError errors={[errors.startDate]} />
+              </Field>
+              <Field data-invalid={!!errors.endDate}>
+                <FieldLabel htmlFor="semester-end-date">{t("semesters.formEndDateLabel")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("semesters.formEndDateHint")}</p>
+                <DatePickerField
+                  id="semester-end-date"
+                  value={endDate ?? ""}
+                  onChange={(value) => setValue("endDate", value)}
+                  aria-invalid={!!errors.endDate}
+                />
+                <FieldError errors={[errors.endDate]} />
+              </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
                   {formError}
                 </p>
               )}
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -969,19 +1115,21 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir semestre?</AlertDialogTitle>
+            <AlertDialogTitle>{t("semesters.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O semestre "{deleting?.year} -{" "}
-              {deleting && TERM_LABELS[deleting.term]}" será removido permanentemente.
+              {t("semesters.deleteDescription", {
+                year: deleting?.year,
+                term: deleting ? TERM_LABELS[deleting.term] : "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -995,6 +1143,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function OfferingsGroupedByInstitution() {
+  const { t } = useTranslation("adminAcademicStructure");
   const { institutions, isLoading } = useGroupedByInstitution(
     "subject-offerings",
     listSubjectOfferings
@@ -1008,22 +1157,22 @@ function OfferingsGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -1036,7 +1185,7 @@ function OfferingsGroupedByInstitution() {
                     size="sm"
                     onClick={() => setViewingInstitutionId(institution.id)}
                   >
-                    Ver ofertas
+                    {t("offerings.view")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -1051,8 +1200,8 @@ function OfferingsGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Ofertas de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Ofertas de disciplina agrupadas por curso.</DialogDescription>
+            <DialogTitle>{t("offerings.ofInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("offerings.groupedByCourse")}</DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
             {viewingInstitutionId !== null && (
@@ -1066,6 +1215,7 @@ function OfferingsGroupedByInstitution() {
 }
 
 function OfferingsGroupedByCourse({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminAcademicStructure");
   const { data: courses, isLoading: coursesLoading } = useQuery({
     queryKey: ["courses", institutionId],
     queryFn: () => listCourses(institutionId),
@@ -1083,11 +1233,16 @@ function OfferingsGroupedByCourse({ institutionId }: { institutionId: number }) 
     return (
       <div>
         <div className="mb-4 flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={() => setViewingCourseId(null)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("offerings.back")}
+            onClick={() => setViewingCourseId(null)}
+          >
             <ArrowLeft className="size-4" />
           </Button>
           <span className="text-sm font-medium text-foreground">
-            Ofertas de {viewingCourse?.name}
+            {t("offerings.ofCourse", { course: viewingCourse?.name })}
           </span>
         </div>
         <SubjectOfferingsTab institutionId={institutionId} courseFilter={viewingCourseId} />
@@ -1100,23 +1255,23 @@ function OfferingsGroupedByCourse({ institutionId }: { institutionId: number }) 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Curso</TableHead>
-            <TableHead>Ofertas</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
+            <TableHead>{t("offerings.columnCourse")}</TableHead>
+            <TableHead>{t("offerings.columnHeader")}</TableHead>
+            <TableHead className="text-right">{t("columnActions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading && (
             <TableRow>
               <TableCell colSpan={3} className="text-center text-muted-foreground">
-                Carregando...
+                {t("common:status.loading")}
               </TableCell>
             </TableRow>
           )}
           {!isLoading && courses?.length === 0 && (
             <TableRow>
               <TableCell colSpan={3} className="text-center text-muted-foreground">
-                Nenhum curso cadastrado.
+                {t("courses.noneRegistered")}
               </TableCell>
             </TableRow>
           )}
@@ -1125,16 +1280,14 @@ function OfferingsGroupedByCourse({ institutionId }: { institutionId: number }) 
             return (
               <TableRow key={course.id}>
                 <TableCell className="font-medium">{course.name}</TableCell>
-                <TableCell>
-                  {count} {count === 1 ? "oferta" : "ofertas"}
-                </TableCell>
+                <TableCell>{t("offerings.count", { count })}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setViewingCourseId(course.id)}
                   >
-                    Ver ofertas
+                    {t("offerings.view")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -1153,6 +1306,8 @@ function SubjectOfferingsTab({
   institutionId: number;
   courseFilter?: number;
 }) {
+  const { t } = useTranslation("adminAcademicStructure");
+  const subjectOfferingCsvColumns = useSubjectOfferingCsvColumns();
   const queryClient = useQueryClient();
   const queryKey = ["subject-offerings", institutionId] as const;
 
@@ -1269,7 +1424,7 @@ function SubjectOfferingsTab({
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError("Não foi possível salvar a oferta. Tente novamente.");
+      setFormError(t("offerings.saveError"));
     }
   }
 
@@ -1293,10 +1448,18 @@ function SubjectOfferingsTab({
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <CsvImportExport
+          onImport={(file) => importSubjectOfferingsCsv(file, institutionId)}
+          onExport={() => exportSubjectOfferingsCsv(institutionId)}
+          exportFilename="ofertas.csv"
+          onImported={() => queryClient.invalidateQueries({ queryKey })}
+          entityLabel="ofertas"
+          columns={subjectOfferingCsvColumns}
+        />
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Nova oferta
+          {t("offerings.new")}
         </Button>
       </div>
 
@@ -1304,27 +1467,27 @@ function SubjectOfferingsTab({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Curso</TableHead>
-              <TableHead>Disciplina</TableHead>
-              <TableHead>Semestre</TableHead>
-              <TableHead>Turma</TableHead>
-              <TableHead>Alunos previstos</TableHead>
-              <TableHead>Período recomendado</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("offerings.columnCourse")}</TableHead>
+              <TableHead>{t("offerings.columnSubject")}</TableHead>
+              <TableHead>{t("offerings.columnSemester")}</TableHead>
+              <TableHead>{t("offerings.columnSection")}</TableHead>
+              <TableHead>{t("offerings.columnExpectedStudents")}</TableHead>
+              <TableHead>{t("offerings.columnRecommendedSemester")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && filteredOfferings?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhuma oferta cadastrada.
+                  {t("offerings.noneRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -1337,10 +1500,20 @@ function SubjectOfferingsTab({
                 <TableCell>{offering.expectedStudents}</TableCell>
                 <TableCell>{offering.recommendedSemester}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(offering)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("offerings.editAriaLabel", { section: offering.section })}
+                    onClick={() => openEdit(offering)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleting(offering)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("offerings.deleteAriaLabel", { section: offering.section })}
+                    onClick={() => setDeleting(offering)}
+                  >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -1353,23 +1526,23 @@ function SubjectOfferingsTab({
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar oferta" : "Nova oferta"}</DialogTitle>
+            <DialogTitle>{editing ? t("offerings.editDialogTitle") : t("offerings.newDialogTitle")}</DialogTitle>
             <DialogDescription>
               {editing
-                ? "Atualize os dados da oferta de disciplina."
-                : "Vincula uma disciplina a um curso e semestre."}
+                ? t("offerings.editDialogDescription")
+                : t("offerings.newDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.courseId}>
-                <FieldLabel htmlFor="offering-course">Curso</FieldLabel>
+                <FieldLabel htmlFor="offering-course">{t("offerings.formCourseLabel")}</FieldLabel>
                 <Select
                   value={courseId ? String(courseId) : ""}
                   onValueChange={(value) => setValue("courseId", Number(value))}
                 >
                   <SelectTrigger id="offering-course" className="w-full">
-                    <SelectValue placeholder="Selecione um curso">
+                    <SelectValue placeholder={t("offerings.formCoursePlaceholder")}>
                       {(value: string) => courseName(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -1385,13 +1558,13 @@ function SubjectOfferingsTab({
               </Field>
 
               <Field data-invalid={!!errors.subjectId}>
-                <FieldLabel htmlFor="offering-subject">Disciplina</FieldLabel>
+                <FieldLabel htmlFor="offering-subject">{t("offerings.formSubjectLabel")}</FieldLabel>
                 <Select
                   value={subjectId ? String(subjectId) : ""}
                   onValueChange={(value) => setValue("subjectId", Number(value))}
                 >
                   <SelectTrigger id="offering-subject" className="w-full">
-                    <SelectValue placeholder="Selecione uma disciplina">
+                    <SelectValue placeholder={t("offerings.formSubjectPlaceholder")}>
                       {(value: string) => subjectName(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -1407,13 +1580,13 @@ function SubjectOfferingsTab({
               </Field>
 
               <Field data-invalid={!!errors.semesterId}>
-                <FieldLabel htmlFor="offering-semester">Semestre</FieldLabel>
+                <FieldLabel htmlFor="offering-semester">{t("offerings.formSemesterLabel")}</FieldLabel>
                 <Select
                   value={semesterId ? String(semesterId) : ""}
                   onValueChange={(value) => setValue("semesterId", Number(value))}
                 >
                   <SelectTrigger id="offering-semester" className="w-full">
-                    <SelectValue placeholder="Selecione um semestre">
+                    <SelectValue placeholder={t("offerings.formSemesterPlaceholder")}>
                       {(value: string) => semesterName(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -1429,13 +1602,17 @@ function SubjectOfferingsTab({
               </Field>
 
               <Field data-invalid={!!errors.section}>
-                <FieldLabel htmlFor="offering-section">Turma</FieldLabel>
-                <Input id="offering-section" placeholder="Ex: A, B, Noturno" {...register("section")} />
+                <FieldLabel htmlFor="offering-section">{t("offerings.formSectionLabel")}</FieldLabel>
+                <Input
+                  id="offering-section"
+                  placeholder={t("offerings.formSectionPlaceholder")}
+                  {...register("section")}
+                />
                 <FieldError errors={[errors.section]} />
               </Field>
 
               <Field data-invalid={!!errors.expectedStudents}>
-                <FieldLabel htmlFor="offering-expected-students">Alunos previstos</FieldLabel>
+                <FieldLabel htmlFor="offering-expected-students">{t("offerings.formExpectedStudentsLabel")}</FieldLabel>
                 <Input
                   id="offering-expected-students"
                   type="number"
@@ -1447,7 +1624,7 @@ function SubjectOfferingsTab({
 
               <Field data-invalid={!!errors.recommendedSemester}>
                 <FieldLabel htmlFor="offering-recommended-semester">
-                  Período recomendado
+                  {t("offerings.formRecommendedSemesterLabel")}
                 </FieldLabel>
                 <Input
                   id="offering-recommended-semester"
@@ -1464,7 +1641,7 @@ function SubjectOfferingsTab({
                 </p>
               )}
               <Button type="submit" disabled={isSaving} className="btn-gold">
-                {isSaving ? "Salvando..." : "Salvar"}
+                {isSaving ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -1474,18 +1651,16 @@ function SubjectOfferingsTab({
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir oferta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita. A oferta será removida permanentemente.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("offerings.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("offerings.deleteDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

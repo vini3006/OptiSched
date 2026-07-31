@@ -5,10 +5,13 @@ import com.vinibarros.optisched.dto.response.SemesterResponse;
 import com.vinibarros.optisched.entity.Institution;
 import com.vinibarros.optisched.entity.Semester;
 import com.vinibarros.optisched.exception.DuplicateResourceException;
+import com.vinibarros.optisched.exception.InvalidSemesterException;
+import com.vinibarros.optisched.exception.ResourceInUseException;
 import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.SemesterMapper;
 import com.vinibarros.optisched.repository.InstitutionRepository;
 import com.vinibarros.optisched.repository.SemesterRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,12 +38,20 @@ public class SemesterService {
             );
         }
 
+        validateDateRange(request);
+
         Institution institution = institutionRepository.findById(institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
 
         Semester semester = semesterMapper.toEntity(request, institution);
         Semester saved = semesterRepository.save(semester);
         return semesterMapper.toResponse(saved);
+    }
+
+    private void validateDateRange(SemesterRequest request) {
+        if (request.startDate() != null && request.endDate() != null && !request.endDate().isAfter(request.startDate())) {
+            throw new InvalidSemesterException("The semester's end date must be after its start date.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -72,8 +83,12 @@ public class SemesterService {
             );
         }
 
+        validateDateRange(request);
+
         semester.setYear(request.year());
         semester.setTerm(request.term());
+        semester.setStartDate(request.startDate());
+        semester.setEndDate(request.endDate());
 
         Semester updated = semesterRepository.save(semester);
         return semesterMapper.toResponse(updated);
@@ -84,6 +99,10 @@ public class SemesterService {
         if (!semesterRepository.existsByIdAndInstitutionId(id, institutionId)) {
             throw new ResourceNotFoundException("Semester", id);
         }
-        semesterRepository.deleteById(id);
+        try {
+            semesterRepository.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResourceInUseException("Semester cannot be deleted because it is referenced by existing SubjectOffering or Schedule records");
+        }
     }
 }

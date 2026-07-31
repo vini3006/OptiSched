@@ -1,5 +1,6 @@
 package com.vinibarros.optisched.entity;
 
+import com.vinibarros.optisched.enums.RoomType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,7 +15,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Classroom {
+public class Classroom extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,6 +26,10 @@ public class Classroom {
 
     @Column(nullable = false)
     private Integer capacity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RoomType type;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)

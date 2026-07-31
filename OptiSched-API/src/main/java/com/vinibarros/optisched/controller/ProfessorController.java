@@ -6,7 +6,9 @@ import com.vinibarros.optisched.dto.response.ProfessorResponse;
 import com.vinibarros.optisched.service.ProfessorService;
 import com.vinibarros.optisched.util.MultiTenantUtils;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +58,25 @@ public class ProfessorController {
         return ResponseEntity.ok(professorService.findAll(targetInstitutionId));
     }
 
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> export(
+            @RequestParam(required = false) Long institutionIdSuperAdmin,
+            @RequestAttribute(required = false) Long institutionIdAdmin) {
+
+        Long targetInstitutionId = MultiTenantUtils.resolveInstitutionId(
+                "export professors",
+                institutionIdAdmin,
+                institutionIdSuperAdmin
+        );
+
+        byte[] csv = professorService.exportToCsv(targetInstitutionId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"professores.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv);
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ProfessorResponse> update(
@@ -70,7 +91,7 @@ public class ProfessorController {
                 institutionIdSuperAdmin
         );
 
-        return ResponseEntity.ok(professorService.update(id, request.name(), targetInstitutionId));
+        return ResponseEntity.ok(professorService.update(id, request, targetInstitutionId));
     }
 
     @DeleteMapping("/{id}")

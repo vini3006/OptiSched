@@ -1,0 +1,15 @@
+export default {
+  title: "Minha Disponibilidade",
+  subtitle: "Marque os horários em que você está disponível para lecionar.",
+  noProfessorRecord: "Não foi possível identificar seu cadastro de professor.",
+  newAvailability: "Nova disponibilidade",
+  noAvailabilities: "Você ainda não marcou nenhum horário disponível.",
+  deleteAriaLabel: "Excluir disponibilidade",
+  deleteConfirmTitle: "Excluir disponibilidade?",
+  newDialogTitle: "Nova disponibilidade",
+  newDialogDescription: "Marca um horário em que você está disponível para lecionar.",
+  timeSlotLabel: "Horário",
+  selectTimeSlotPlaceholder: "Selecione um horário",
+  createError: "Não foi possível salvar a disponibilidade. Tente novamente.",
+  deleteError: "Não foi possível excluir a disponibilidade. Tente novamente.",
+} as const;

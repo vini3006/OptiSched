@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 public record InstitutionRequest(
-    @NotBlank String name,
+    @NotBlank @Size(max = 255) String name,
     @Size(min=14, max=14) String cnpj,
     @NotNull SubscriptionStatus subscriptionStatus,
     LocalDateTime expiresAt

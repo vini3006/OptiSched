@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -13,6 +14,7 @@ import { loginSchema, type LoginFormValues } from "@/lib/validations/login-schem
 import { whatsappLink } from "@/constants/landing";
 
 export function LoginForm() {
+  const { t } = useTranslation("auth");
   const { login, isLoggingIn } = useAuth();
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
@@ -35,13 +37,14 @@ export function LoginForm() {
       const roleHome: Record<string, string> = {
         SUPER_ADMIN: "/super-admin",
         ADMIN: "/admin",
+        PROFESSOR: "/professor",
       };
       await navigate({ to: roleHome[authUser.role] ?? "/" });
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
-        setFormError("E-mail ou senha inválidos.");
+        setFormError(t("login.invalidCredentials"));
       } else {
-        setFormError("Não foi possível entrar. Tente novamente em instantes.");
+        setFormError(t("login.loginError"));
       }
     }
   }
@@ -50,7 +53,7 @@ export function LoginForm() {
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <FieldGroup>
         <Field data-invalid={!!errors.email}>
-          <FieldLabel htmlFor="email">E-mail</FieldLabel>
+          <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
           <Input
             id="email"
             type="email"
@@ -63,7 +66,7 @@ export function LoginForm() {
         </Field>
 
         <Field data-invalid={!!errors.password}>
-          <FieldLabel htmlFor="password">Senha</FieldLabel>
+          <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
           <div className="relative">
             <Input
               id="password"
@@ -78,7 +81,7 @@ export function LoginForm() {
               type="button"
               onClick={() => setShowPassword((value) => !value)}
               className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground"
-              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-label={showPassword ? t("hidePassword") : t("showPassword")}
             >
               {showPassword ? (
                 <EyeOff className="size-4" />
@@ -95,7 +98,7 @@ export function LoginForm() {
             to="/esqueci-senha"
             className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
           >
-            Esqueceu sua senha?
+            {t("login.forgotPassword")}
           </Link>
         </div>
 
@@ -110,18 +113,18 @@ export function LoginForm() {
           disabled={isLoggingIn}
           className="btn-gold w-full justify-center py-2.5 text-sm font-semibold"
         >
-          {isLoggingIn ? "Entrando..." : "Entrar"}
+          {isLoggingIn ? t("login.loggingIn") : t("login.enter")}
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">
-          Ainda não possui uma conta?{" "}
+          {t("login.noAccount")}{" "}
           <a
             href={whatsappLink}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-primary hover:underline"
           >
-            Fale conosco
+            {t("login.contactUs")}
           </a>
         </p>
       </FieldGroup>

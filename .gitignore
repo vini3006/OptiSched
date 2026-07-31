@@ -1,4 +1,3 @@
-```gitignore
 # ==========================
 # Environment
 # ==========================
@@ -9,6 +8,7 @@ app.pub
 
 # Keep example environment file
 !.env.example
+temp/
 
 # ==========================
 # Maven
@@ -70,4 +70,3 @@ Thumbs.db
 # ==========================
 
 .claude/
-```

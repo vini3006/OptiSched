@@ -13,4 +13,5 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
     List<Subject> findAllByInstitutionId(Long institutionId);
     Optional<Subject> findByIdAndInstitutionId(Long id, Long institutionId);
     boolean existsByCodeAndInstitutionId(String code, Long institutionId);
+    Optional<Subject> findByCodeAndInstitutionId(String code, Long institutionId);
 }

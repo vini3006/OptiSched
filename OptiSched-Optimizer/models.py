@@ -1,6 +1,6 @@
 from datetime import time
 from pydantic import BaseModel
-from enums import DayOfWeek
+from enums import DayOfWeek, RoomType
 
 # =========================
 # Input DTOs
@@ -10,6 +10,8 @@ class Professor(BaseModel):
     id: int
     qualified_subject_ids: list[int]
     available_time_slot_ids: list[int]
+    max_daily_time_slots: int | None = None
+    max_weekly_time_slots: int | None = None
 
 class SubjectOffering(BaseModel):
     id: int
@@ -19,10 +21,12 @@ class SubjectOffering(BaseModel):
     required_time_slots: int
     expected_students: int
     recommended_semester: int
+    required_room_type: RoomType | None = None
 
 class Classroom(BaseModel):
     id: int
     capacity: int
+    type: RoomType
 
 class TimeSlot(BaseModel):
     id: int
@@ -35,6 +39,13 @@ class ObjectiveWeightsDTO(BaseModel):
     beta: float = 1.0
     gamma: float = 1.0
     delta: float = 1.0
+    epsilon: float = 0.0
+
+class LockedAssignment(BaseModel):
+    subject_offering_id: int
+    professor_id: int
+    classroom_id: int
+    time_slot_id: int
 
 class OptimizationRequest(BaseModel):
     professors: list[Professor]
@@ -42,6 +53,8 @@ class OptimizationRequest(BaseModel):
     classrooms: list[Classroom]
     time_slots: list[TimeSlot]
     objective_weights: ObjectiveWeightsDTO = ObjectiveWeightsDTO()
+    preferred_time_slot_ids: list[int] = []
+    locked_assignments: list[LockedAssignment] = []
 
 # =========================
 # Output DTOs

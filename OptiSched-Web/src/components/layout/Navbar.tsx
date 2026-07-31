@@ -58,6 +58,8 @@ export function Navbar() {
           variant="ghost"
           size="icon"
           className="lg:hidden"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
           onClick={() => setOpen(!open)}
         >
           {open ? (

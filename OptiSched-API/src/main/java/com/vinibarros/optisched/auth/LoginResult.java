@@ -4,6 +4,7 @@ public record LoginResult(
         String token,
         Long userId,
         String email,
+        String name,
         String role,
         Long institutionId,
         Long professorId

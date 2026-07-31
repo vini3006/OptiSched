@@ -42,6 +42,7 @@ export function Calendar({ selected, month, onMonthChange, onSelect }: CalendarP
           type="button"
           variant="ghost"
           size="icon-sm"
+          aria-label="Mês anterior"
           onClick={() => onMonthChange(new Date(year, monthIndex - 1, 1))}
         >
           <ChevronLeft className="size-4" />
@@ -51,6 +52,7 @@ export function Calendar({ selected, month, onMonthChange, onSelect }: CalendarP
           type="button"
           variant="ghost"
           size="icon-sm"
+          aria-label="Próximo mês"
           onClick={() => onMonthChange(new Date(year, monthIndex + 1, 1))}
         >
           <ChevronRight className="size-4" />

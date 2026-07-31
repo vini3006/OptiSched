@@ -56,7 +56,7 @@ public class SemesterController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'PROFESSOR')")
     public ResponseEntity<List<SemesterResponse>> findAll(
             @RequestParam(required = false) Long institutionIdSuperAdmin,
             @RequestAttribute(required = false) Long institutionIdAdmin) {

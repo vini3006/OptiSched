@@ -1,8 +1,10 @@
 package com.vinibarros.optisched.controller;
 
+import com.vinibarros.optisched.dto.request.ScheduleGenerationRequest;
 import com.vinibarros.optisched.dto.response.ScheduleResponse;
 import com.vinibarros.optisched.optimization.ScheduleGenerationService;
 import com.vinibarros.optisched.util.MultiTenantUtils;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +24,7 @@ public class ScheduleGenerationController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ScheduleResponse> generate(
             @RequestParam Long semesterId,
+            @Valid @RequestBody ScheduleGenerationRequest options,
             @RequestParam(required = false) Long institutionIdSuperAdmin,
             @RequestAttribute(required = false) Long institutionIdAdmin) {
 
@@ -31,7 +34,7 @@ public class ScheduleGenerationController {
                 institutionIdSuperAdmin
         );
 
-        ScheduleResponse response = scheduleGenerationService.generateSchedule(semesterId, targetInstitutionId);
+        ScheduleResponse response = scheduleGenerationService.generateSchedule(semesterId, targetInstitutionId, options);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

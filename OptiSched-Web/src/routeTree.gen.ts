@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProfessorRouteImport } from './routes/professor'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminEstruturaAcademicaRouteImport } from './routes/admin.estrutura-academica'
@@ -21,6 +23,10 @@ import { Route as AdminInfraestruturaRouteImport } from './routes/admin.infraest
 import { Route as AdminMinhaInstituicaoRouteImport } from './routes/admin.minha-instituicao'
 import { Route as AdminProfessoresRouteImport } from './routes/admin.professores'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as ProfessorIndexRouteImport } from './routes/professor.index'
+import { Route as ProfessorDisponibilidadeRouteImport } from './routes/professor.disponibilidade'
+import { Route as ProfessorHorarioRouteImport } from './routes/professor.horario'
+import { Route as ProfessorQualificacoesRouteImport } from './routes/professor.qualificacoes'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminEstruturaAcademicaRouteImport } from './routes/super-admin.estrutura-academica'
 import { Route as SuperAdminGradesRouteImport } from './routes/super-admin.grades'
@@ -47,6 +53,16 @@ const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfessorRoute = ProfessorRouteImport.update({
+  id: '/professor',
+  path: '/professor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperAdminRoute = SuperAdminRouteImport.update({
@@ -88,6 +104,27 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
+} as any)
+const ProfessorIndexRoute = ProfessorIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProfessorRoute,
+} as any)
+const ProfessorDisponibilidadeRoute =
+  ProfessorDisponibilidadeRouteImport.update({
+    id: '/disponibilidade',
+    path: '/disponibilidade',
+    getParentRoute: () => ProfessorRoute,
+  } as any)
+const ProfessorHorarioRoute = ProfessorHorarioRouteImport.update({
+  id: '/horario',
+  path: '/horario',
+  getParentRoute: () => ProfessorRoute,
+} as any)
+const ProfessorQualificacoesRoute = ProfessorQualificacoesRouteImport.update({
+  id: '/qualificacoes',
+  path: '/qualificacoes',
+  getParentRoute: () => ProfessorRoute,
 } as any)
 const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
   id: '/',
@@ -132,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/professor': typeof ProfessorRouteWithChildren
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/grades': typeof AdminGradesRoute
@@ -139,6 +178,9 @@ export interface FileRoutesByFullPath {
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/professor/disponibilidade': typeof ProfessorDisponibilidadeRoute
+  '/professor/horario': typeof ProfessorHorarioRoute
+  '/professor/qualificacoes': typeof ProfessorQualificacoesRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -146,18 +188,23 @@ export interface FileRoutesByFullPath {
   '/super-admin/professores': typeof SuperAdminProfessoresRoute
   '/super-admin/usuarios': typeof SuperAdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
+  '/professor/': typeof ProfessorIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/grades': typeof AdminGradesRoute
   '/admin/infraestrutura': typeof AdminInfraestruturaRoute
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/professor/disponibilidade': typeof ProfessorDisponibilidadeRoute
+  '/professor/horario': typeof ProfessorHorarioRoute
+  '/professor/qualificacoes': typeof ProfessorQualificacoesRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -165,6 +212,7 @@ export interface FileRoutesByTo {
   '/super-admin/professores': typeof SuperAdminProfessoresRoute
   '/super-admin/usuarios': typeof SuperAdminUsuariosRoute
   '/admin': typeof AdminIndexRoute
+  '/professor': typeof ProfessorIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -173,6 +221,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/professor': typeof ProfessorRouteWithChildren
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/admin/estrutura-academica': typeof AdminEstruturaAcademicaRoute
   '/admin/grades': typeof AdminGradesRoute
@@ -180,6 +230,9 @@ export interface FileRoutesById {
   '/admin/minha-instituicao': typeof AdminMinhaInstituicaoRoute
   '/admin/professores': typeof AdminProfessoresRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/professor/disponibilidade': typeof ProfessorDisponibilidadeRoute
+  '/professor/horario': typeof ProfessorHorarioRoute
+  '/professor/qualificacoes': typeof ProfessorQualificacoesRoute
   '/super-admin/estrutura-academica': typeof SuperAdminEstruturaAcademicaRoute
   '/super-admin/grades': typeof SuperAdminGradesRoute
   '/super-admin/infraestrutura': typeof SuperAdminInfraestruturaRoute
@@ -187,6 +240,7 @@ export interface FileRoutesById {
   '/super-admin/professores': typeof SuperAdminProfessoresRoute
   '/super-admin/usuarios': typeof SuperAdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
+  '/professor/': typeof ProfessorIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -196,6 +250,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/esqueci-senha'
     | '/login'
+    | '/professor'
+    | '/redefinir-senha'
     | '/super-admin'
     | '/admin/estrutura-academica'
     | '/admin/grades'
@@ -203,6 +259,9 @@ export interface FileRouteTypes {
     | '/admin/minha-instituicao'
     | '/admin/professores'
     | '/admin/usuarios'
+    | '/professor/disponibilidade'
+    | '/professor/horario'
+    | '/professor/qualificacoes'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -210,18 +269,23 @@ export interface FileRouteTypes {
     | '/super-admin/professores'
     | '/super-admin/usuarios'
     | '/admin/'
+    | '/professor/'
     | '/super-admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/esqueci-senha'
     | '/login'
+    | '/redefinir-senha'
     | '/admin/estrutura-academica'
     | '/admin/grades'
     | '/admin/infraestrutura'
     | '/admin/minha-instituicao'
     | '/admin/professores'
     | '/admin/usuarios'
+    | '/professor/disponibilidade'
+    | '/professor/horario'
+    | '/professor/qualificacoes'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -229,6 +293,7 @@ export interface FileRouteTypes {
     | '/super-admin/professores'
     | '/super-admin/usuarios'
     | '/admin'
+    | '/professor'
     | '/super-admin'
   id:
     | '__root__'
@@ -236,6 +301,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/esqueci-senha'
     | '/login'
+    | '/professor'
+    | '/redefinir-senha'
     | '/super-admin'
     | '/admin/estrutura-academica'
     | '/admin/grades'
@@ -243,6 +310,9 @@ export interface FileRouteTypes {
     | '/admin/minha-instituicao'
     | '/admin/professores'
     | '/admin/usuarios'
+    | '/professor/disponibilidade'
+    | '/professor/horario'
+    | '/professor/qualificacoes'
     | '/super-admin/estrutura-academica'
     | '/super-admin/grades'
     | '/super-admin/infraestrutura'
@@ -250,6 +320,7 @@ export interface FileRouteTypes {
     | '/super-admin/professores'
     | '/super-admin/usuarios'
     | '/admin/'
+    | '/professor/'
     | '/super-admin/'
   fileRoutesById: FileRoutesById
 }
@@ -258,6 +329,8 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   LoginRoute: typeof LoginRoute
+  ProfessorRoute: typeof ProfessorRouteWithChildren
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
 }
 
@@ -289,6 +362,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/professor': {
+      id: '/professor'
+      path: '/professor'
+      fullPath: '/professor'
+      preLoaderRoute: typeof ProfessorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/super-admin': {
@@ -346,6 +433,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/usuarios'
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/professor/': {
+      id: '/professor/'
+      path: '/'
+      fullPath: '/professor/'
+      preLoaderRoute: typeof ProfessorIndexRouteImport
+      parentRoute: typeof ProfessorRoute
+    }
+    '/professor/disponibilidade': {
+      id: '/professor/disponibilidade'
+      path: '/disponibilidade'
+      fullPath: '/professor/disponibilidade'
+      preLoaderRoute: typeof ProfessorDisponibilidadeRouteImport
+      parentRoute: typeof ProfessorRoute
+    }
+    '/professor/horario': {
+      id: '/professor/horario'
+      path: '/horario'
+      fullPath: '/professor/horario'
+      preLoaderRoute: typeof ProfessorHorarioRouteImport
+      parentRoute: typeof ProfessorRoute
+    }
+    '/professor/qualificacoes': {
+      id: '/professor/qualificacoes'
+      path: '/qualificacoes'
+      fullPath: '/professor/qualificacoes'
+      preLoaderRoute: typeof ProfessorQualificacoesRouteImport
+      parentRoute: typeof ProfessorRoute
     }
     '/super-admin/': {
       id: '/super-admin/'
@@ -421,6 +536,24 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface ProfessorRouteChildren {
+  ProfessorDisponibilidadeRoute: typeof ProfessorDisponibilidadeRoute
+  ProfessorHorarioRoute: typeof ProfessorHorarioRoute
+  ProfessorQualificacoesRoute: typeof ProfessorQualificacoesRoute
+  ProfessorIndexRoute: typeof ProfessorIndexRoute
+}
+
+const ProfessorRouteChildren: ProfessorRouteChildren = {
+  ProfessorDisponibilidadeRoute: ProfessorDisponibilidadeRoute,
+  ProfessorHorarioRoute: ProfessorHorarioRoute,
+  ProfessorQualificacoesRoute: ProfessorQualificacoesRoute,
+  ProfessorIndexRoute: ProfessorIndexRoute,
+}
+
+const ProfessorRouteWithChildren = ProfessorRoute._addFileChildren(
+  ProfessorRouteChildren,
+)
+
 interface SuperAdminRouteChildren {
   SuperAdminEstruturaAcademicaRoute: typeof SuperAdminEstruturaAcademicaRoute
   SuperAdminGradesRoute: typeof SuperAdminGradesRoute
@@ -450,6 +583,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   LoginRoute: LoginRoute,
+  ProfessorRoute: ProfessorRouteWithChildren,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   SuperAdminRoute: SuperAdminRouteWithChildren,
 }
 export const routeTree = rootRouteImport

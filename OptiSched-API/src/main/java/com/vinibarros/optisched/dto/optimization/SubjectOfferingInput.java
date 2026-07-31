@@ -2,6 +2,7 @@ package com.vinibarros.optisched.dto.optimization;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.vinibarros.optisched.enums.RoomType;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record SubjectOfferingInput(
@@ -10,6 +11,7 @@ public record SubjectOfferingInput(
         Long courseId,
         Integer requiredTimeSlots,
         Integer expectedStudents,
-        Integer recommendedSemester
+        Integer recommendedSemester,
+        RoomType requiredRoomType
 )
 {}

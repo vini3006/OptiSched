@@ -30,7 +30,8 @@ public class ScheduleEntryMapper {
                 scheduleEntry.getTimeSlot().getId(),
                 scheduleEntry.getTimeSlot().getDayOfWeek(),
                 scheduleEntry.getTimeSlot().getStartTime(),
-                scheduleEntry.getTimeSlot().getEndTime()
+                scheduleEntry.getTimeSlot().getEndTime(),
+                scheduleEntry.isLocked()
         );
     }
 }

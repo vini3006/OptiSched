@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API (Java)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OptiSched-API
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Run tests
+        # Testcontainers spins up a real postgres:16 container per
+        # AbstractIntegrationTest — Docker is preinstalled and running on
+        # GitHub-hosted ubuntu-latest runners, no extra setup needed.
+        run: mvn -B test
+
+  optimizer:
+    name: Optimizer (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OptiSched-Optimizer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: OptiSched-Optimizer/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  web:
+    name: Web (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OptiSched-Web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: OptiSched-Web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build

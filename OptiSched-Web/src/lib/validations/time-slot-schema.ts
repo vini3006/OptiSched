@@ -1,4 +1,7 @@
 import { z } from "zod";
+import i18next from "@/i18n/i18n";
+
+const t = (key: string) => i18next.t(key, { ns: "validations" });
 
 export const timeSlotSchema = z.object({
   dayOfWeek: z.enum([
@@ -10,8 +13,8 @@ export const timeSlotSchema = z.object({
     "SATURDAY",
     "SUNDAY",
   ]),
-  startTime: z.string().min(1, "Informe o horário de início."),
-  endTime: z.string().min(1, "Informe o horário de término."),
+  startTime: z.string().min(1, t("timeSlot.startTimeRequired")),
+  endTime: z.string().min(1, t("timeSlot.endTimeRequired")),
 });
 
 export type TimeSlotFormValues = z.infer<typeof timeSlotSchema>;

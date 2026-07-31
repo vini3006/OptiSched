@@ -101,6 +101,10 @@ def create_variables(model: Highs, data: SolverData) -> Variables:
             if data.classroom_capacity[r] < data.expected_students[o]:
                 continue
 
+            required_type = data.required_classroom_type.get(o)
+            if required_type is not None and data.classroom_type.get(r) != required_type:
+                continue
+
             for t in data.time_slots:
 
                 if (p, t) not in data.valid_availabilities:
@@ -112,6 +116,9 @@ def create_variables(model: Highs, data: SolverData) -> Variables:
                 )
 
                 x[(p, o, r, t)] = variable
+
+                if (p, o, r, t) in data.locked_assignments:
+                    model.changeColBounds(variable, 1.0, 1.0)
 
                 # -------------------------
                 # Auxiliary indices
@@ -181,13 +188,15 @@ class AuxiliaryVariables:
     w: dict[tuple[int, DayOfWeek], int]
 
     # ======================================================
-    # Consecutive Lectures
+    # Same-Offering Block
     # ======================================================
     #
-    # g_(p,t) = 1 if professor p teaches both TimeSlot t and
-    # next(t).
+    # b_(o,t) = 1 if SubjectOffering o is scheduled both at
+    # TimeSlot t and at next(t) — i.e. two of its own lectures
+    # land back-to-back on the same day, forming a block
+    # instead of being interleaved with other offerings.
     #
-    g: dict[tuple[int, int], int]
+    b: dict[tuple[int, int], int]
 
     # ======================================================
     # Subject Distribution
@@ -228,12 +237,12 @@ def create_integer_variable(model: Highs, name: str, lower_bound: float = 0.0, u
 
     return index
 
-def create_auxiliary_variables(model: Highs, data: SolverData,) -> AuxiliaryVariables:
+def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variables) -> AuxiliaryVariables:
     z = {}
     f = {}
     l = {}
     w = {}
-    g = {}
+    b = {}
     v = {}
     u = {}
 
@@ -249,16 +258,28 @@ def create_auxiliary_variables(model: Highs, data: SolverData,) -> AuxiliaryVari
 
         for day in data.time_slots_by_day.keys():
 
+            # f/l track the first/last occupied slot position on this day,
+            # so they can never exceed how many slots the day has. Without
+            # this upper bound, a professor with zero availability on a
+            # given day leaves f/l untouched by any constraint (C11/C12
+            # only apply where a z variable exists), and f's negative
+            # objective cost then drives it to +infinity, making the whole
+            # LP relaxation unbounded (HighsModelStatus.kUnboundedOrInfeasible)
+            # instead of reporting a real (in)feasibility result.
+            day_slot_count = len(data.time_slots_by_day[day])
+
             f[(professor, day)] = create_integer_variable(
                 model=model,
                 name=f"f_{professor}_{day}",
                 lower_bound=0,
+                upper_bound=day_slot_count,
             )
 
             l[(professor, day)] = create_integer_variable(
                 model=model,
                 name=f"l_{professor}_{day}",
                 lower_bound=0,
+                upper_bound=day_slot_count,
             )
 
             w[(professor, day)] = create_binary_variable(
@@ -280,23 +301,6 @@ def create_auxiliary_variables(model: Highs, data: SolverData,) -> AuxiliaryVari
                 model=model,
                 name=f"z_{professor}_{time_slot}",
             )
-
-            day = data.slot_day[time_slot]
-
-            position = data.slot_position[time_slot]
-
-            slots = data.time_slots_by_day[day]
-
-            # g only exists if there is a next TimeSlot
-            if position < len(slots) - 1:
-
-                next_time_slot = slots[position+1]
-
-                if (professor, next_time_slot) in data.valid_availabilities:
-                    g[(professor, time_slot)] = create_binary_variable(
-                        model=model,
-                        name=f"g_{professor}_{time_slot}",
-                    )
 
     # ======================================================
     # SubjectOffering Variables
@@ -327,12 +331,39 @@ def create_auxiliary_variables(model: Highs, data: SolverData,) -> AuxiliaryVari
                 name=f"u_{offering}_{classroom}",
             )
 
+        # --------------------------
+        # Same-offering block variables
+        # --------------------------
+        #
+        # b_(o,t) only needs to exist where the offering can actually be
+        # scheduled at BOTH t and next(t) — if either side has no valid
+        # x variable at all, the sum there is always 0 and b would be
+        # forced to 0 anyway, so skipping it keeps the model smaller.
+
+        for day, slots in data.time_slots_by_day.items():
+
+            for position in range(len(slots) - 1):
+
+                time_slot = slots[position]
+                next_time_slot = slots[position + 1]
+
+                current_columns = variables.x_by_offering_timeslot.get((offering, time_slot), [])
+                next_columns = variables.x_by_offering_timeslot.get((offering, next_time_slot), [])
+
+                if not current_columns or not next_columns:
+                    continue
+
+                b[(offering, time_slot)] = create_binary_variable(
+                    model=model,
+                    name=f"b_{offering}_{time_slot}",
+                )
+
     return AuxiliaryVariables(
         z=z,
         f=f,
         l=l,
         w=w,
-        g=g,
+        b=b,
         v=v,
         u=u,
     )

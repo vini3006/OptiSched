@@ -38,7 +38,21 @@ public class InstitutionFilter implements Filter {
 
             Long institutionId = jwt.getClaim("institution_id");
             Long professorId = jwt.getClaim("professor_id");
+            String role = jwt.getClaim("role");
             String path = ((HttpServletRequest) request).getServletPath();
+
+            if ("PROFESSOR".equals(role) && professorId == null && !path.startsWith("/auth/")) {
+                HttpServletResponse httpResponse = (HttpServletResponse) response;
+                httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                httpResponse.setContentType("application/json");
+                httpResponse.getWriter().write(
+                        "{\"timestamp\":\"" + Instant.now() + "\","
+                                + "\"status\":403,"
+                                + "\"error\":\"Forbidden\","
+                                + "\"message\":\"Professor account is missing its professor record.\"}"
+                );
+                return;
+            }
 
             if (institutionId != null && !path.startsWith("/auth/")) {
                 if (!isSubscriptionActive(institutionId)) {

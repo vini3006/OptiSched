@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from models import OptimizationRequest, ObjectiveWeightsDTO
 from validation import *
-from enums import DayOfWeek     
+from enums import DayOfWeek
 
 
 # ==========================================================
@@ -23,6 +23,7 @@ class ObjectiveWeights:
     beta: float = 1.0
     gamma: float = 1.0
     delta: float = 1.0
+    epsilon: float = 0.0
 
 @dataclass
 class SolverData:
@@ -95,6 +96,31 @@ class SolverData:
 
     objective_weights: ObjectiveWeights
 
+    # TimeSlots the admin wants the optimizer to prefer (e.g. "morning
+    # only"), weighted by objective_weights.epsilon. Empty means no
+    # time-of-day preference at all.
+    preferred_time_slots: set[int] = field(default_factory=set)
+
+    # Per-professor hard caps on how many TimeSlots they can be scheduled
+    # for, per day / per week. A professor absent from a dict has no cap.
+    # Defaulted (rather than required) so existing SolverData call sites
+    # that predate this feature don't need updating.
+    max_daily_slots: dict[int, int] = field(default_factory=dict)
+    max_weekly_slots: dict[int, int] = field(default_factory=dict)
+
+    # t_r
+    classroom_type: dict[int, str] = field(default_factory=dict)
+
+    # Required room type per offering — absent/None means no preference
+    # (any classroom, subject to capacity, is fine).
+    required_classroom_type: dict[int, str | None] = field(default_factory=dict)
+
+    # (professor, offering, classroom, time_slot) tuples carried over from a
+    # previous generation that must stay exactly as-is — matches the x
+    # variable's own (p, o, r, t) key shape so a locked entry can be looked
+    # up directly during variable creation.
+    locked_assignments: set[tuple[int, int, int, int]] = field(default_factory=set)
+
 # ==========================================================
 # Mapper
 # ==========================================================
@@ -140,6 +166,16 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         for c in request.classrooms
     }
 
+    classroom_type = {
+        c.id: c.type
+        for c in request.classrooms
+    }
+
+    required_classroom_type = {
+        o.id: o.required_room_type
+        for o in request.subject_offerings
+    }
+
     # ======================================================
     # Valid Qualifications
     # ======================================================
@@ -182,6 +218,27 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
             valid_availabilities.add(
                 (professor.id, slot)
             )
+
+    # ======================================================
+    # Professor Hour Caps
+    # ======================================================
+    #
+    # Only professors with an actual cap set appear in these dicts —
+    # absence means "no limit" for that professor.
+    #
+    # ======================================================
+
+    max_daily_slots = {
+        p.id: p.max_daily_time_slots
+        for p in request.professors
+        if p.max_daily_time_slots is not None
+    }
+
+    max_weekly_slots = {
+        p.id: p.max_weekly_time_slots
+        for p in request.professors
+        if p.max_weekly_time_slots is not None
+    }
 
     # ======================================================
     # Conflict Set
@@ -254,11 +311,41 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
             slot_day[slot.id] = day
 
     # ======================================================
+    # Locked Assignments
+    # ======================================================
+    #
+    # (professor, offering, classroom, time slot) tuples that must be
+    # fixed to 1 when the x variable is created.
+    #
+    # ======================================================
+
+    locked_assignments = {
+        (locked.professor_id, locked.subject_offering_id, locked.classroom_id, locked.time_slot_id)
+        for locked in request.locked_assignments
+    }
+
+    # ======================================================
     # Validations
     # =====================================================
 
     validate_professor_coverage(subject_offerings = request.subject_offerings, valid_qualifications = valid_qualifications)
     validate_classroom_capacity(subject_offerings = request.subject_offerings, classrooms = request.classrooms)
+    validate_classroom_type_coverage(subject_offerings = request.subject_offerings, classrooms = request.classrooms)
+    validate_professor_time_capacity(
+        subject_offerings = request.subject_offerings,
+        professors = request.professors,
+        valid_qualifications = valid_qualifications,
+        max_weekly_slots = max_weekly_slots,
+    )
+    validate_locked_assignments_feasible(
+        locked_assignments = request.locked_assignments,
+        valid_qualifications = valid_qualifications,
+        valid_availabilities = valid_availabilities,
+        classroom_capacity = classroom_capacity,
+        classroom_type = classroom_type,
+        required_classroom_type = required_classroom_type,
+        expected_students = expected_students,
+    )
 
     # ======================================================
     # Weights
@@ -269,7 +356,10 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         beta=request.objective_weights.beta,
         gamma=request.objective_weights.gamma,
         delta=request.objective_weights.delta,
+        epsilon=request.objective_weights.epsilon,
     )
+
+    preferred_time_slots = set(request.preferred_time_slot_ids)
 
     # ======================================================
     # Return SolverData
@@ -289,6 +379,12 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         expected_students=expected_students,
         classroom_capacity=classroom_capacity,
         conflicts=conflicts,
-        objective_weights=weights
+        max_daily_slots=max_daily_slots,
+        max_weekly_slots=max_weekly_slots,
+        classroom_type=classroom_type,
+        required_classroom_type=required_classroom_type,
+        objective_weights=weights,
+        preferred_time_slots=preferred_time_slots,
+        locked_assignments=locked_assignments
     )
 

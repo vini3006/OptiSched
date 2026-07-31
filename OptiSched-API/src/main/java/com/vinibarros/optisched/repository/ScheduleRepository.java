@@ -17,7 +17,13 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
     List<Schedule> findAllByInstitutionId(Long institutionId);
 
+    List<Schedule> findAllByInstitutionIdAndSemesterId(Long institutionId, Long semesterId);
+
+    long countBySemesterIdAndInstitutionId(Long semesterId, Long institutionId);
+
     boolean existsBySemesterIdAndStatusAndInstitutionId(Long semesterId, ScheduleStatus status, Long institutionId);
 
     Schedule findBySemesterIdAndStatusAndInstitutionId(Long semesterId, ScheduleStatus status, Long institutionId);
+
+    Optional<Schedule> findFirstByInstitutionIdAndStatusOrderByGeneratedAtDesc(Long institutionId, ScheduleStatus status);
 }

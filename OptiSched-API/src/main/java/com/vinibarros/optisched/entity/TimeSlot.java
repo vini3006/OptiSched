@@ -17,7 +17,7 @@ import java.time.DayOfWeek;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TimeSlot {
+public class TimeSlot extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -217,7 +217,83 @@ def add_professor_exclusivity_constraint(model: Highs, data: SolverData, variabl
             )
 
 # ==========================================================
-# C8 - Classroom Capacity
+# C7b - Professor Max Daily Hours
+# ==========================================================
+#
+# A professor cannot be scheduled for more than max_daily_slots[p]
+# TimeSlots on any single day. Only professors present in
+# data.max_daily_slots have a cap — everyone else is unrestricted.
+#
+# Mathematical formulation:
+#
+#      Σ x_port ≤ max_daily_slots[p]
+#   o,r,t∈T_d
+#
+# ∀ p ∈ P with a cap, d ∈ D
+#
+# ==========================================================
+
+def add_professor_max_daily_hours_constraint(model: Highs, data: SolverData, variables: Variables) -> None:
+
+    for professor, cap in data.max_daily_slots.items():
+
+        for day, slots in data.time_slots_by_day.items():
+
+            indices = []
+
+            for time_slot in slots:
+                indices.extend(variables.x_by_professor_timeslot.get((professor, time_slot), []))
+
+            if not indices:
+                continue
+
+            coefficients = [1.0] * len(indices)
+
+            model.addRow(
+                -model.getInfinity(),
+                float(cap),
+                len(indices),
+                indices,
+                coefficients
+            )
+
+# ==========================================================
+# C7c - Professor Max Weekly Hours
+# ==========================================================
+#
+# Same idea as C7b, but capping the professor's total TimeSlots
+# across the whole week instead of per day.
+#
+# Mathematical formulation:
+#
+#      Σ x_port ≤ max_weekly_slots[p]
+#    o,r,t
+#
+# ∀ p ∈ P with a cap
+#
+# ==========================================================
+
+def add_professor_max_weekly_hours_constraint(model: Highs, data: SolverData, variables: Variables) -> None:
+
+    for professor, cap in data.max_weekly_slots.items():
+
+        indices = variables.x_by_professor.get(professor, [])
+
+        if not indices:
+            continue
+
+        coefficients = [1.0] * len(indices)
+
+        model.addRow(
+            -model.getInfinity(),
+            float(cap),
+            len(indices),
+            indices,
+            coefficients
+        )
+
+# ==========================================================
+# C8 - Classroom Capacity & Room Type
 # ==========================================================
 #
 # This constraint is implicitly enforced during variable
@@ -226,6 +302,7 @@ def add_professor_exclusivity_constraint(model: Highs, data: SolverData, variabl
 # Decision variables x(p,o,r,t) are created only when:
 #
 #     classroom_capacity[r] >= expected_students[o]
+#     AND (required_classroom_type[o] is None OR classroom_type[r] == required_classroom_type[o])
 #
 # Therefore, no explicit linear constraint is required.
 #
@@ -306,6 +383,45 @@ def add_offering_time_slot_exclusivity_constraint(model: Highs, data: SolverData
             )   
 
 # ==========================================================
+# C10b - Professor Occupancy Definition
+# ==========================================================
+#
+# Defines what z_pt actually means: z_pt = 1 iff professor p is scheduled
+# to teach ANY offering during TimeSlot t.
+#
+#   z_pt = Σ x_port
+#         o,r
+#
+# ∀ p ∈ P, t ∈ T
+#
+# Without this, z is only ever referenced by C11/C12/C13/S1's objective
+# cost — nothing ties it to the actual x assignment, so the solver is free
+# to set z (and everything built on top of it: w, f, l, g) however is most
+# convenient for the objective, completely disconnected from which classes
+# are really scheduled. That silently made S1 (alpha) and S3 (gamma, once
+# it became a reward instead of a penalty) collectible "for free" without
+# actually compacting or consecutive-izing anyone's real schedule.
+#
+# ==========================================================
+
+def add_professor_occupancy_definition_constraint(model: Highs, data: SolverData, variables: Variables, auxiliary: AuxiliaryVariables) -> None:
+
+    for (professor, time_slot), z_column in auxiliary.z.items():
+
+        x_columns = variables.x_by_professor_timeslot.get((professor, time_slot), [])
+
+        indices = [z_column] + x_columns
+        coefficients = [1.0] + [-1.0] * len(x_columns)
+
+        model.addRow(
+            0.0,
+            0.0,
+            len(indices),
+            indices,
+            coefficients
+        )
+
+# ==========================================================
 # C11 - Day Activity Linking (Soft Constraint)
 # ==========================================================
 #
@@ -329,12 +445,56 @@ def add_day_activity_linking_constraint(model: Highs, data: SolverData, variable
         w_column = auxiliary.w[(professor, day)]
 
         model.addRow(
-            -model.getInfinity(), 
+            -model.getInfinity(),
             0.0,
             2,
             [z_column, w_column],
             [1.0, -1.0]
         )
+
+# ==========================================================
+# C11b - Day Activity Upper Bound
+# ==========================================================
+#
+# The other half of "w_pd = 1 iff professor p teaches at least once on
+# day d": C11 only forces w UP when some z is 1 (z ≤ w). Without this row,
+# w has no cost and nothing else stops the solver from leaving it at 1 on
+# a day the professor never actually teaches — which is exactly what let
+# C12's f/l float freely (see below) instead of collapsing to a neutral
+# value on idle days.
+#
+#     w_pd ≤ Σ z_pt
+#           t∈T_d
+#
+# ∀ p ∈ P, d ∈ D
+#
+# ==========================================================
+
+def add_day_activity_upper_bound_constraint(model: Highs, data: SolverData, auxiliary: AuxiliaryVariables) -> None:
+
+    for professor in data.professors:
+
+        for day, slots in data.time_slots_by_day.items():
+
+            w_column = auxiliary.w[(professor, day)]
+
+            z_columns = [auxiliary.z[(professor, t)] for t in slots if (professor, t) in auxiliary.z]
+
+            if not z_columns:
+                # Professor has zero availability this day at all: w must be 0.
+                model.addRow(0.0, 0.0, 1, [w_column], [1.0])
+                continue
+
+            indices = [w_column] + z_columns
+            coefficients = [1.0] + [-1.0] * len(z_columns)
+
+            model.addRow(
+                -model.getInfinity(),
+                0.0,
+                len(indices),
+                indices,
+                coefficients
+            )
 
 # ==========================================================
 # C12 - First / Last Slot Bounding
@@ -396,22 +556,86 @@ def add_first_last_slot_bounding_constraint(model: Highs, data: SolverData, auxi
         )
 
 # ==========================================================
-# C13 - Consecutive Lecture Linking
+# C12b - Idle Day Zeroing
 # ==========================================================
 #
-# Detects consecutive lectures.
+# On a day the professor doesn't work at all (w_pd=0), C12's per-slot rows
+# above never fire (every z_pt=0 that day), leaving f/l completely
+# unconstrained. f has a negative objective cost (S1 rewards it being
+# large), so without this, f floats up to its own upper bound on every
+# idle day, l floats to 0, and the solver collects an `alpha * M_d` bonus
+# per idle day that has nothing to do with any real schedule — sometimes
+# even paying more to plant extra idle days on top of a genuinely compact
+# real day. Forcing f = l = 0 when w_pd = 0 makes an idle day contribute
+# exactly 0, as it should.
+#
+#   f_pd ≤ M·w_pd
+#   l_pd ≤ M·w_pd
+#
+# ∀ p ∈ P, d ∈ D
+#
+# ==========================================================
+
+def add_idle_day_zeroing_constraint(model: Highs, data: SolverData, auxiliary: AuxiliaryVariables) -> None:
+
+    for professor in data.professors:
+
+        for day, slots in data.time_slots_by_day.items():
+
+            M = len(slots)
+
+            f_column = auxiliary.f[(professor, day)]
+            l_column = auxiliary.l[(professor, day)]
+            w_column = auxiliary.w[(professor, day)]
+
+            model.addRow(
+                -model.getInfinity(),
+                0.0,
+                2,
+                [f_column, w_column],
+                [1.0, -float(M)]
+            )
+
+            model.addRow(
+                -model.getInfinity(),
+                0.0,
+                2,
+                [l_column, w_column],
+                [1.0, -float(M)]
+            )
+
+# ==========================================================
+# C13 - Same-Offering Block Linking
+# ==========================================================
+#
+# Standard AND-linearization: b_ot = 1 exactly when SubjectOffering o has
+# a lecture BOTH at TimeSlot t and at next(t) — two of the offering's own
+# sessions landing back-to-back, forming a block instead of being
+# interleaved with other offerings on the same day.
+#
+# Σx_ot is effectively binary already (C10 caps it at 1), so it can be
+# used directly in place of a dedicated occupancy variable.
 #
 # Mathematical formulation:
 #
-#   g_pt ≥ z_pt + z_p,next(t) - 1
+#   b_ot ≤ Σx_ot
+#   b_ot ≤ Σx_o,next(t)
+#   b_ot ≥ Σx_ot + Σx_o,next(t) - 1
 #
-# ∀ p ∈ P, t ∈ T : next(t) exists
+# ∀ o ∈ O, t ∈ T : next(t) exists
+#
+# All three rows are required regardless of which way S3's weight pushes b:
+# with only the lower bound, a *penalty* on b still works by accident
+# (minimization already wants b as small as its bound allows), but a
+# *reward* on b (S3's whole point — see objective.py) would let the solver
+# set b=1 for free with no upper bound tying it to the offering actually
+# being scheduled at both slots.
 #
 # ==========================================================
 
-def add_consecutive_lecture_linking_constraint(model: Highs, data: SolverData, auxiliary: AuxiliaryVariables) -> None:
+def add_same_offering_block_linking_constraint(model: Highs, data: SolverData, variables: Variables, auxiliary: AuxiliaryVariables) -> None:
 
-    for(professor, time_slot), g_column in auxiliary.g.items():
+    for(offering, time_slot), b_column in auxiliary.b.items():
 
         day = data.slot_day[time_slot]
 
@@ -419,21 +643,34 @@ def add_consecutive_lecture_linking_constraint(model: Highs, data: SolverData, a
 
         next_slot = data.time_slots_by_day[day][position]
 
-        z_current = auxiliary.z[(professor, time_slot)]
-        z_next = auxiliary.z[(professor, next_slot)]
+        current_columns = variables.x_by_offering_timeslot.get((offering, time_slot), [])
+        next_columns = variables.x_by_offering_timeslot.get((offering, next_slot), [])
 
-        #
-        # g ≥ z + z_next - 1
-        #
-        # g - z - z_next ≥ -1
-        #
+        # b ≤ Σx_ot  -->  b - Σx_ot ≤ 0
+        model.addRow(
+            -model.getInfinity(),
+            0.0,
+            1 + len(current_columns),
+            [b_column] + current_columns,
+            [1.0] + [-1.0] * len(current_columns)
+        )
 
+        # b ≤ Σx_o,next(t)  -->  b - Σx_o,next(t) ≤ 0
+        model.addRow(
+            -model.getInfinity(),
+            0.0,
+            1 + len(next_columns),
+            [b_column] + next_columns,
+            [1.0] + [-1.0] * len(next_columns)
+        )
+
+        # b ≥ Σx_ot + Σx_o,next(t) - 1  -->  b - Σx_ot - Σx_o,next(t) ≥ -1
         model.addRow(
             -1.0,
             model.getInfinity(),
-            3,
-            [g_column, z_current, z_next],
-            [1.0, -1.0, -1.0]
+            1 + len(current_columns) + len(next_columns),
+            [b_column] + current_columns + next_columns,
+            [1.0] + [-1.0] * len(current_columns) + [-1.0] * len(next_columns)
         )
 
 # ==========================================================
@@ -547,11 +784,20 @@ def add_all_constraints(model: Highs, data: SolverData, variables: Variables, au
     # C7
     add_professor_exclusivity_constraint(model, data, variables)
 
+    # C7b
+    add_professor_max_daily_hours_constraint(model, data, variables)
+
+    # C7c
+    add_professor_max_weekly_hours_constraint(model, data, variables)
+
     # C9
     add_classroom_exclusivity_constraint(model, data, variables)
 
     # C10
     add_offering_time_slot_exclusivity_constraint(model, data, variables)
+
+    # C10b
+    add_professor_occupancy_definition_constraint(model, data, variables, auxiliary)
 
     # ==========================================================
     # Soft Constraints / Linking (C11 a C15)
@@ -560,11 +806,17 @@ def add_all_constraints(model: Highs, data: SolverData, variables: Variables, au
     # C11
     add_day_activity_linking_constraint(model, data, variables, auxiliary)
 
+    # C11b
+    add_day_activity_upper_bound_constraint(model, data, auxiliary)
+
     # C12
     add_first_last_slot_bounding_constraint(model, data, auxiliary)
 
+    # C12b
+    add_idle_day_zeroing_constraint(model, data, auxiliary)
+
     # C13
-    add_consecutive_lecture_linking_constraint(model, data, auxiliary)
+    add_same_offering_block_linking_constraint(model, data, variables, auxiliary)
 
     # C14
     add_same_day_concentration_constraint(model, data, variables, auxiliary)

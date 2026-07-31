@@ -219,14 +219,41 @@ t\in T
 
 ---
 
-### Classroom Constraints
+#### (C7b) Professor Max Daily Hours
 
-#### (C8) Capacity
-
-The assigned classroom must accommodate the expected number of students.
+A professor with a configured daily cap cannot be scheduled for more time slots than that cap on any single day. Professors without a cap are unrestricted.
 
 \[
-e_o\,x_{port}\le c_r,
+\sum_{o\in O}\sum_{r\in R}\sum_{t\in T_d}x_{port}\le\text{maxDailySlots}_p,
+\qquad
+\forall p\in P\text{ with a cap},\;
+d\in D
+\]
+
+---
+
+#### (C7c) Professor Max Weekly Hours
+
+Same idea as (C7b), but capping the professor's total scheduled time slots across the whole week instead of per day.
+
+\[
+\sum_{o\in O}\sum_{r\in R}\sum_{t\in T}x_{port}\le\text{maxWeeklySlots}_p,
+\qquad
+\forall p\in P\text{ with a cap}
+\]
+
+---
+
+### Classroom Constraints
+
+#### (C8) Capacity & Room Type
+
+The assigned classroom must accommodate the expected number of students, and — when the offering requires a specific room type (e.g. laboratory) — the assigned classroom must match it. Both conditions are enforced implicitly during variable generation: a decision variable \(x_{port}\) is only created when the classroom satisfies both, so no explicit linear constraint is required.
+
+\[
+e_o\le c_r
+\quad\text{and}\quad
+\bigl(\text{requiredType}_o=\varnothing\ \text{or}\ \text{type}_r=\text{requiredType}_o\bigr),
 \qquad
 \forall p\in P,\;
 o\in O,\;
@@ -287,9 +314,9 @@ Prefer schedules in which the lectures of the same subject offering are distribu
 
 ---
 
-### (S3) Avoid Excessive Consecutive Lectures
+### (S3) Same-Offering Block Preference
 
-Minimize long sequences of consecutive lectures assigned to the same professor.
+Prefer grouping a subject offering's own repeated lectures on the same day into a contiguous block, instead of interleaving them with other offerings.
 
 ---
 
@@ -317,7 +344,7 @@ Since the soft constraints depend on temporal structure (day grouping and slot o
 - \(z_{pt} = \sum_{o\in O}\sum_{r\in R}x_{port}\): Indicates whether professor (p) has a lecture during time slot (t). This variable is effectively binary as a consequence of (C7).
 - \(f_{pd}, l_{pd} \ge 0\): First and last occupied slot position for professor \(p\) on day \(d\).
 - \(w_{pd} \in {0,1}\): Indicates whether professor \(p\) has at least one lecture on day \(d\).
-- \(g_{pt} \in {0,1}\), for \(t\) such that \(\text{next}(t)\) exists: Indicates a back-to-back lecture pair for professor \(p\) between \(t\) and \(\text{next}(t)\).
+- \(b_{ot} \in {0,1}\), for \(t\) such that \(\text{next}(t)\) exists: Indicates a back-to-back lecture pair of offering \(o\)'s own sessions between \(t\) and \(\text{next}(t)\).
 - \(v_{od} \in \Z_{\ge 0}\): Number of lectures of offering \(o\) scheduled on day \(d\), in excess of one.
 - \(u_{or} \in {0,1}\): Indicates whether offering \(o\) uses classroom \(r\) at least once during the week.
 
@@ -348,12 +375,12 @@ l_{pd} \ge \text{pos}(t)\cdot z_{pt},
 
 ---
 
-#### (C13) Consecutive Lecture Linking
-This constraint tracks back-to-back lecture blocks for a professor on the same day. If professor $p$ teaches in slot $t$ ($z_{pt} = 1$) and also in the immediately following slot $\text{next}(t)$ ($z_{p,\text{next}(t)} = 1$), the sum on the right-hand side forces the consecutive indicator variable $g_{pt}$ to assume the value 1. 
+#### (C13) Same-Offering Block Linking
+This constraint tracks back-to-back lecture blocks of the same subject offering on the same day. If offering $o$ is scheduled in slot $t$ ($\sum_{p,r} x_{port} = 1$) and also in the immediately following slot $\text{next}(t)$, the sum on the right-hand side forces the block indicator variable $b_{ot}$ to assume the value 1. 
 
 \[
-g_{pt} \ge z_{pt} + z_{p,\text{next}(t)} - 1,
-\qquad \forall p\in P, t\in T:\text{next}(t)\text{ exists}
+b_{ot} \ge \sum_{p,r}x_{port} + \sum_{p,r}x_{po,\text{next}(t),r} - 1,
+\qquad \forall o\in O, t\in T:\text{next}(t)\text{ exists}
 \]
 
 --- 
@@ -399,11 +426,11 @@ Penalizes scheduling multiple lectures of the same offering on a single day. Min
 
 ---
 
-### (S3) Excessive Consecutive Lectures
-Penalizes long sequences of consecutive lectures assigned to the same professor. Minimizing this term prevents teacher fatigue by discouraging the scheduling of long, uninterrupted teaching blocks.
+### (S3) Same-Offering Block Preference
+Rewards keeping a subject offering's own repeated lectures on the same day grouped into a contiguous block. This term is only ever collectible where S2 hasn't already avoided a same-day repeat entirely — when it does happen, minimizing this term's negative contribution keeps the repeated sessions together instead of interleaved with other offerings, which is pedagogically preferable for both the professor and the students.
 
 \[
-\text{Consecutiveness} = \sum_{p\in P}\sum_{t\in T:,\text{next}(t)\text{ exists}} g_{pt}
+\text{Blocking} = \sum_{o\in O}\sum_{t\in T:,\text{next}(t)\text{ exists}} b_{ot}
 \]
 
 ---
@@ -423,7 +450,7 @@ The final multi-objective model is formulated as a single weighted sum minimizat
 $$\begin{aligned}
 \min \quad & \alpha \cdot \text{Holes} \ + \\
            & \beta \cdot \text{Concentration} \ + \\
-           & \gamma \cdot \text{Consecutiveness} \ + \\
+           & (-\gamma) \cdot \text{Blocking} \ + \\
            & \delta \cdot \text{ClassroomChanges}
 \end{aligned}$$
 

@@ -21,7 +21,8 @@ public class ScheduleMapper {
                 schedule.getId(),
                 schedule.getSemester().getId(),
                 schedule.getGeneratedAt(),
-                schedule.getStatus()
+                schedule.getStatus(),
+                schedule.getVersion()
         );
     }
 }

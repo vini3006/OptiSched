@@ -13,6 +13,8 @@ public class SemesterMapper {
         Semester semester = new Semester();
         semester.setYear(request.year());
         semester.setTerm(request.term());
+        semester.setStartDate(request.startDate());
+        semester.setEndDate(request.endDate());
         semester.setInstitution(institution);
         return semester;
     }
@@ -21,7 +23,9 @@ public class SemesterMapper {
         return new SemesterResponse(
                 semester.getId(),
                 semester.getYear(),
-                semester.getTerm()
+                semester.getTerm(),
+                semester.getStartDate(),
+                semester.getEndDate()
         );
     }
 }

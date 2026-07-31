@@ -12,7 +12,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfessorQualification {
+public class ProfessorQualification extends Auditable {
 
     @EmbeddedId
     private ProfessorQualificationId id = new ProfessorQualificationId();

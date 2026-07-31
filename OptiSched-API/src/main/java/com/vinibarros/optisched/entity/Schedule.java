@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Schedule {
+public class Schedule extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +30,9 @@ public class Schedule {
     @Column(name = "generated_at",nullable = false)
     private LocalDateTime generatedAt;
 
+    @Column(nullable = false)
+    private Integer version;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ScheduleStatus status;
@@ -38,6 +41,6 @@ public class Schedule {
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;
 
-    @OneToMany(mappedBy = "schedule")
+    @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ScheduleEntry> scheduleEntries = new HashSet<>();
 }

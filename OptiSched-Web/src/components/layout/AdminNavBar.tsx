@@ -1,14 +1,18 @@
+import { useTranslation } from "react-i18next";
+
 import { AppNavBar, type NavLink } from "@/components/layout/AppNavBar";
 
-const navLinks: NavLink[] = [
-  { to: "/admin/minha-instituicao", label: "Minha Instituição" },
-  { to: "/admin/usuarios", label: "Usuários" },
-  { to: "/admin/estrutura-academica", label: "Estrutura Acadêmica" },
-  { to: "/admin/infraestrutura", label: "Infraestrutura" },
-  { to: "/admin/professores", label: "Professores" },
-  { to: "/admin/grades", label: "Grades" },
-];
-
 export function AdminNavBar() {
+  const { t } = useTranslation("appNavBar");
+
+  const navLinks: NavLink[] = [
+    { to: "/admin/minha-instituicao", label: t("admin.minhaInstituicao") },
+    { to: "/admin/usuarios", label: t("admin.usuarios") },
+    { to: "/admin/estrutura-academica", label: t("admin.estruturaAcademica") },
+    { to: "/admin/infraestrutura", label: t("admin.infraestrutura") },
+    { to: "/admin/professores", label: t("admin.professores") },
+    { to: "/admin/grades", label: t("admin.grades") },
+  ];
+
   return <AppNavBar logoHref="/admin" navLinks={navLinks} />;
 }

@@ -20,7 +20,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubjectOffering {
+public class SubjectOffering extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

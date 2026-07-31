@@ -1,5 +1,6 @@
 package com.vinibarros.optisched.entity;
 
+import com.vinibarros.optisched.enums.RoomType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,7 +19,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 
-public class Subject {
+public class Subject extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,6 +33,10 @@ public class Subject {
 
     @Column(nullable = false)
     private Integer workload; //Workload refers to the weekly amount of classes
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "required_room_type")
+    private RoomType requiredRoomType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)

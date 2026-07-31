@@ -15,7 +15,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Professor {
+public class Professor extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,6 +31,12 @@ public class Professor {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;
+
+    @Column(name = "max_daily_time_slots")
+    private Integer maxDailyTimeSlots;
+
+    @Column(name = "max_weekly_time_slots")
+    private Integer maxWeeklyTimeSlots;
 
     @OneToMany(mappedBy = "professor", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ProfessorQualification> qualifications = new HashSet<>();

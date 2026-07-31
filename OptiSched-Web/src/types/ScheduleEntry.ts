@@ -18,4 +18,5 @@ export type ScheduleEntry = {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
+  locked: boolean;
 };

@@ -19,7 +19,9 @@ public class ProfessorMapper {
     public ProfessorResponse toResponse(Professor professor) {
         return new ProfessorResponse(
                 professor.getId(),
-                professor.getName()
+                professor.getName(),
+                professor.getMaxDailyTimeSlots(),
+                professor.getMaxWeeklyTimeSlots()
         );
     }
 }

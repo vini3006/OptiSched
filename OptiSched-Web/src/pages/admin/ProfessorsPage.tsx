@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,18 +44,17 @@ import {
 } from "@/components/ui/table";
 
 import { deleteProfessor, listProfessors, updateProfessor } from "@/api/professors";
+import { CsvImportExport, type CsvColumnSpec } from "@/components/admin/CsvImportExport";
 import { listSubjects } from "@/api/subjects";
 import { listTimeSlots } from "@/api/time-slots";
 import {
   createQualification,
   deleteQualification,
+  exportQualificationsCsv,
+  importQualificationsCsv,
   listQualifications,
 } from "@/api/professor-qualifications";
-import {
-  createAvailability,
-  deleteAvailability,
-  listAvailabilities,
-} from "@/api/availabilities";
+import { createAvailability, deleteAvailability, listAvailabilities } from "@/api/availabilities";
 import { professorSchema, type ProfessorFormValues } from "@/lib/validations/professor-schema";
 import {
   professorQualificationSchema,
@@ -75,23 +76,37 @@ function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
+function useQualificationCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminProfessors");
+  return [
+    { name: "professorEmail", description: t("qualificationCsvColumns.professorEmail") },
+    { name: "subjectCode", description: t("qualificationCsvColumns.subjectCode") },
+  ];
+}
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error) && typeof error.response?.data?.message === "string") {
+    return error.response.data.message;
+  }
+  return fallback;
+}
+
 export function ProfessorsPage() {
+  const { t } = useTranslation("adminProfessors");
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId } = useSelectedInstitution();
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-primary">Professores</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Gerencie os professores, suas qualificações e disponibilidade de horário.
-      </p>
+      <h1 className="text-xl font-semibold text-primary">{t("title")}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
 
       <Tabs defaultValue="professores" className="mt-6">
         <TabsList>
-          <TabsTrigger value="professores">Professores</TabsTrigger>
-          <TabsTrigger value="qualificacoes">Qualificações</TabsTrigger>
-          <TabsTrigger value="disponibilidade">Disponibilidade</TabsTrigger>
+          <TabsTrigger value="professores">{t("tabProfessores")}</TabsTrigger>
+          <TabsTrigger value="qualificacoes">{t("tabQualificacoes")}</TabsTrigger>
+          <TabsTrigger value="disponibilidade">{t("tabDisponibilidade")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="professores" className="mt-4">
@@ -100,7 +115,7 @@ export function ProfessorsPage() {
           ) : selectedInstitutionId ? (
             <ProfessorsTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver os professores." />
+            <EmptyInstitutionNotice text={t("selectInstitutionProfessors")} />
           )}
         </TabsContent>
 
@@ -108,7 +123,7 @@ export function ProfessorsPage() {
           {selectedInstitutionId ? (
             <QualificationsTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver as qualificações." />
+            <EmptyInstitutionNotice text={t("selectInstitutionQualifications")} />
           )}
         </TabsContent>
 
@@ -116,7 +131,7 @@ export function ProfessorsPage() {
           {selectedInstitutionId ? (
             <AvailabilityTab institutionId={selectedInstitutionId} />
           ) : (
-            <EmptyInstitutionNotice text="Selecione uma instituição para ver a disponibilidade." />
+            <EmptyInstitutionNotice text={t("selectInstitutionAvailability")} />
           )}
         </TabsContent>
       </Tabs>
@@ -129,6 +144,7 @@ export function ProfessorsPage() {
 // ---------------------------------------------------------------------------
 
 function ProfessorsGroupedByInstitution() {
+  const { t } = useTranslation("adminProfessors");
   const queryClient = useQueryClient();
   const {
     institutions,
@@ -141,6 +157,7 @@ function ProfessorsGroupedByInstitution() {
   const [editing, setEditing] = useState<Professor | null>(null);
   const [deleting, setDeleting] = useState<Professor | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     register,
@@ -149,7 +166,11 @@ function ProfessorsGroupedByInstitution() {
     formState: { errors },
   } = useForm<ProfessorFormValues>({
     resolver: zodResolver(professorSchema),
-    defaultValues: { name: "" },
+    defaultValues: {
+      name: "",
+      maxDailyTimeSlots: null,
+      maxWeeklyTimeSlots: null,
+    },
   });
 
   const updateMutation = useMutation({
@@ -163,7 +184,9 @@ function ProfessorsGroupedByInstitution() {
       institutionId: number;
     }) => updateProfessor(id, input, institutionId),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["professors", variables.institutionId] });
+      queryClient.invalidateQueries({
+        queryKey: ["professors", variables.institutionId],
+      });
       closeEditDialog();
     },
   });
@@ -172,15 +195,24 @@ function ProfessorsGroupedByInstitution() {
     mutationFn: ({ id, institutionId }: { id: number; institutionId: number }) =>
       deleteProfessor(id, institutionId),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["professors", variables.institutionId] });
+      queryClient.invalidateQueries({
+        queryKey: ["professors", variables.institutionId],
+      });
       setDeleting(null);
+    },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteProfessorError")));
     },
   });
 
   function openEdit(professor: Professor) {
     setEditing(professor);
     setFormError(null);
-    reset({ name: professor.name });
+    reset({
+      name: professor.name,
+      maxDailyTimeSlots: professor.maxDailyTimeSlots,
+      maxWeeklyTimeSlots: professor.maxWeeklyTimeSlots,
+    });
     setEditDialogOpen(true);
   }
 
@@ -199,7 +231,7 @@ function ProfessorsGroupedByInstitution() {
         institutionId: viewingInstitutionId,
       });
     } catch {
-      setFormError("Não foi possível salvar o professor. Tente novamente.");
+      setFormError(t("saveProfessorError"));
     }
   }
 
@@ -213,23 +245,23 @@ function ProfessorsGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Professores</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("columnProfessors")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -238,16 +270,14 @@ function ProfessorsGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "professor" : "professores"}
-                  </TableCell>
+                  <TableCell>{t("professorCount", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver professores
+                      {t("viewProfessors")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -263,11 +293,11 @@ function ProfessorsGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col">
           <DialogHeader>
-            <DialogTitle>Professores de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Todos os professores dessa instituição.</DialogDescription>
+            <DialogTitle>{t("professorsOfInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("allProfessorsOfInstitution")}</DialogDescription>
           </DialogHeader>
           {viewingProfessors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum professor cadastrado.</p>
+            <p className="text-sm text-muted-foreground">{t("noProfessorsRegistered")}</p>
           ) : (
             <ul className="flex flex-col gap-2 overflow-y-auto">
               {viewingProfessors.map((professor) => (
@@ -277,13 +307,22 @@ function ProfessorsGroupedByInstitution() {
                 >
                   <span className="text-sm">{professor.name}</span>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(professor)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("editProfessorAriaLabel", { name: professor.name })}
+                      onClick={() => openEdit(professor)}
+                    >
                       <Pencil className="size-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => setDeleting(professor)}
+                      aria-label={t("deleteProfessorAriaLabel", { name: professor.name })}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeleting(professor);
+                      }}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
@@ -298,15 +337,43 @@ function ProfessorsGroupedByInstitution() {
       <Dialog open={editDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar professor</DialogTitle>
-            <DialogDescription>Atualize o nome do professor.</DialogDescription>
+            <DialogTitle>{t("editProfessorDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("editProfessorDialogDescription")}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.name}>
-                <FieldLabel htmlFor="professor-name-grouped">Nome</FieldLabel>
+                <FieldLabel htmlFor="professor-name-grouped">{t("formName")}</FieldLabel>
                 <Input id="professor-name-grouped" {...register("name")} />
                 <FieldError errors={[errors.name]} />
+              </Field>
+              <Field data-invalid={!!errors.maxDailyTimeSlots}>
+                <FieldLabel htmlFor="professor-max-daily-grouped">{t("formMaxDaily")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("formLeaveBlankNotice")}</p>
+                <Input
+                  id="professor-max-daily-grouped"
+                  type="number"
+                  min={1}
+                  {...register("maxDailyTimeSlots", {
+                    setValueAs: (v) => (v === "" ? null : Number(v)),
+                  })}
+                />
+                <FieldError errors={[errors.maxDailyTimeSlots]} />
+              </Field>
+              <Field data-invalid={!!errors.maxWeeklyTimeSlots}>
+                <FieldLabel htmlFor="professor-max-weekly-grouped">
+                  {t("formMaxWeekly")}
+                </FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("formLeaveBlankNotice")}</p>
+                <Input
+                  id="professor-max-weekly-grouped"
+                  type="number"
+                  min={1}
+                  {...register("maxWeeklyTimeSlots", {
+                    setValueAs: (v) => (v === "" ? null : Number(v)),
+                  })}
+                />
+                <FieldError errors={[errors.maxWeeklyTimeSlots]} />
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
@@ -314,7 +381,7 @@ function ProfessorsGroupedByInstitution() {
                 </p>
               )}
               <Button type="submit" disabled={updateMutation.isPending} className="btn-gold">
-                {updateMutation.isPending ? "Salvando..." : "Salvar"}
+                {updateMutation.isPending ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -324,23 +391,30 @@ function ProfessorsGroupedByInstitution() {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir professor?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteProfessorTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O professor "{deleting?.name}" perderá o acesso
-              e será removido permanentemente, junto com suas qualificações e disponibilidade.
+              {t("deleteProfessorDescription", { name: deleting?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 deleting &&
                 viewingInstitutionId !== null &&
-                deleteMutation.mutate({ id: deleting.id, institutionId: viewingInstitutionId })
+                deleteMutation.mutate({
+                  id: deleting.id,
+                  institutionId: viewingInstitutionId,
+                })
               }
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -350,6 +424,7 @@ function ProfessorsGroupedByInstitution() {
 }
 
 function ProfessorsTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminProfessors");
   const queryClient = useQueryClient();
   const queryKey = ["professors", institutionId] as const;
 
@@ -362,6 +437,7 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
   const [editing, setEditing] = useState<Professor | null>(null);
   const [deleting, setDeleting] = useState<Professor | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     register,
@@ -370,7 +446,11 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
     formState: { errors },
   } = useForm<ProfessorFormValues>({
     resolver: zodResolver(professorSchema),
-    defaultValues: { name: "" },
+    defaultValues: {
+      name: "",
+      maxDailyTimeSlots: null,
+      maxWeeklyTimeSlots: null,
+    },
   });
 
   const updateMutation = useMutation({
@@ -388,12 +468,24 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
       queryClient.invalidateQueries({ queryKey });
       setDeleting(null);
     },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteProfessorError")));
+    },
   });
+
+  function openDelete(professor: Professor) {
+    setDeleteError(null);
+    setDeleting(professor);
+  }
 
   function openEdit(professor: Professor) {
     setEditing(professor);
     setFormError(null);
-    reset({ name: professor.name });
+    reset({
+      name: professor.name,
+      maxDailyTimeSlots: professor.maxDailyTimeSlots,
+      maxWeeklyTimeSlots: professor.maxWeeklyTimeSlots,
+    });
     setDialogOpen(true);
   }
 
@@ -408,37 +500,34 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
     try {
       await updateMutation.mutateAsync({ id: editing.id, input: values });
     } catch {
-      setFormError("Não foi possível salvar o professor. Tente novamente.");
+      setFormError(t("saveProfessorError"));
     }
   }
 
   return (
     <div>
-      <p className="text-sm text-muted-foreground">
-        Professores são criados na tela de Usuários (aba "Novo Professor"). Aqui você pode
-        renomear ou remover um professor existente.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("professorsCreatedElsewhereNotice")}</p>
 
       <div className="card-elevated mt-4 rounded-2xl">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnName")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && professors?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground">
-                  Nenhum professor cadastrado.
+                  {t("noProfessorsRegistered")}
                 </TableCell>
               </TableRow>
             )}
@@ -446,13 +535,19 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
               <TableRow key={professor.id}>
                 <TableCell className="font-medium">{professor.name}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(professor)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("editProfessorAriaLabel", { name: professor.name })}
+                    onClick={() => openEdit(professor)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => setDeleting(professor)}
+                    aria-label={t("deleteProfessorAriaLabel", { name: professor.name })}
+                    onClick={() => openDelete(professor)}
                   >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
@@ -466,15 +561,41 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar professor</DialogTitle>
-            <DialogDescription>Atualize o nome do professor.</DialogDescription>
+            <DialogTitle>{t("editProfessorDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("editProfessorDialogDescription")}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.name}>
-                <FieldLabel htmlFor="professor-name">Nome</FieldLabel>
+                <FieldLabel htmlFor="professor-name">{t("formName")}</FieldLabel>
                 <Input id="professor-name" {...register("name")} />
                 <FieldError errors={[errors.name]} />
+              </Field>
+              <Field data-invalid={!!errors.maxDailyTimeSlots}>
+                <FieldLabel htmlFor="professor-max-daily">{t("formMaxDaily")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("formLeaveBlankNotice")}</p>
+                <Input
+                  id="professor-max-daily"
+                  type="number"
+                  min={1}
+                  {...register("maxDailyTimeSlots", {
+                    setValueAs: (v) => (v === "" ? null : Number(v)),
+                  })}
+                />
+                <FieldError errors={[errors.maxDailyTimeSlots]} />
+              </Field>
+              <Field data-invalid={!!errors.maxWeeklyTimeSlots}>
+                <FieldLabel htmlFor="professor-max-weekly">{t("formMaxWeekly")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("formLeaveBlankNotice")}</p>
+                <Input
+                  id="professor-max-weekly"
+                  type="number"
+                  min={1}
+                  {...register("maxWeeklyTimeSlots", {
+                    setValueAs: (v) => (v === "" ? null : Number(v)),
+                  })}
+                />
+                <FieldError errors={[errors.maxWeeklyTimeSlots]} />
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
@@ -482,7 +603,7 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
                 </p>
               )}
               <Button type="submit" disabled={updateMutation.isPending} className="btn-gold">
-                {updateMutation.isPending ? "Salvando..." : "Salvar"}
+                {updateMutation.isPending ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -492,19 +613,23 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir professor?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteProfessorTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O professor "{deleting?.name}" perderá o acesso
-              e será removido permanentemente, junto com suas qualificações e disponibilidade.
+              {t("deleteProfessorDescription", { name: deleting?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleting && deleteMutation.mutate(deleting.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -518,6 +643,8 @@ function ProfessorsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function QualificationsTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminProfessors");
+  const qualificationCsvColumns = useQualificationCsvColumns();
   const queryClient = useQueryClient();
   const queryKey = ["qualifications", institutionId] as const;
 
@@ -538,6 +665,7 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
   const [viewingProfessorId, setViewingProfessorId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<ProfessorQualification | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     handleSubmit,
@@ -569,12 +697,20 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
       queryClient.invalidateQueries({ queryKey });
       setDeleting(null);
     },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteQualificationError")));
+    },
   });
 
   function openCreate() {
     setFormError(null);
     reset({ professorId: 0, subjectId: 0 });
     setDialogOpen(true);
+  }
+
+  function openDelete(qualification: ProfessorQualification) {
+    setDeleteError(null);
+    setDeleting(qualification);
   }
 
   function closeDialog() {
@@ -586,7 +722,7 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
     try {
       await createMutation.mutateAsync(values);
     } catch {
-      setFormError("Não foi possível salvar a qualificação. Tente novamente.");
+      setFormError(t("saveQualificationError"));
     }
   }
 
@@ -600,15 +736,23 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
 
   const viewingProfessor = professors?.find((p) => p.id === viewingProfessorId) ?? null;
   const viewingQualifications = (qualifications ?? []).filter(
-    (q) => q.professorId === viewingProfessorId
+    (q) => q.professorId === viewingProfessorId,
   );
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <CsvImportExport
+          onImport={(file) => importQualificationsCsv(file, institutionId)}
+          onExport={() => exportQualificationsCsv(institutionId)}
+          exportFilename="qualificacoes.csv"
+          onImported={() => queryClient.invalidateQueries({ queryKey })}
+          entityLabel="qualificações"
+          columns={qualificationCsvColumns}
+        />
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          Nova qualificação
+          {t("newQualification")}
         </Button>
       </div>
 
@@ -616,43 +760,41 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Professor</TableHead>
-              <TableHead>Qualificações</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("selectProfessorLabel")}</TableHead>
+              <TableHead>{t("columnQualifications")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && professors?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhum professor cadastrado.
+                  {t("noProfessorsRegistered")}
                 </TableCell>
               </TableRow>
             )}
             {professors?.map((professor) => {
               const count = (qualifications ?? []).filter(
-                (q) => q.professorId === professor.id
+                (q) => q.professorId === professor.id,
               ).length;
               return (
                 <TableRow key={professor.id}>
                   <TableCell className="font-medium">{professor.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "qualificação" : "qualificações"}
-                  </TableCell>
+                  <TableCell>{t("qualificationCount", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingProfessorId(professor.id)}
                     >
-                      Ver qualificações
+                      {t("viewQualifications")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -668,13 +810,11 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
       >
         <DialogContent className="flex max-h-[85vh] flex-col">
           <DialogHeader>
-            <DialogTitle>Qualificações de {viewingProfessor?.name}</DialogTitle>
-            <DialogDescription>
-              Disciplinas que este professor está habilitado a lecionar.
-            </DialogDescription>
+            <DialogTitle>{t("qualificationsOfProfessor", { professor: viewingProfessor?.name })}</DialogTitle>
+            <DialogDescription>{t("qualificationsOfProfessorDescription")}</DialogDescription>
           </DialogHeader>
           {viewingQualifications.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma qualificação cadastrada.</p>
+            <p className="text-sm text-muted-foreground">{t("noQualificationsRegistered")}</p>
           ) : (
             <ul className="flex flex-col gap-2 overflow-y-auto">
               {viewingQualifications.map((qualification) => (
@@ -688,7 +828,8 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => setDeleting(qualification)}
+                    aria-label={t("deleteQualificationAriaLabel", { subject: qualification.subjectCode })}
+                    onClick={() => openDelete(qualification)}
                   >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
@@ -702,21 +843,19 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova qualificação</DialogTitle>
-            <DialogDescription>
-              Habilita um professor a lecionar uma disciplina.
-            </DialogDescription>
+            <DialogTitle>{t("newQualificationDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newQualificationDialogDescription")}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.professorId}>
-                <FieldLabel htmlFor="qualification-professor">Professor</FieldLabel>
+                <FieldLabel htmlFor="qualification-professor">{t("selectProfessorLabel")}</FieldLabel>
                 <Select
                   value={professorId ? String(professorId) : ""}
                   onValueChange={(value) => setValue("professorId", Number(value))}
                 >
                   <SelectTrigger id="qualification-professor" className="w-full">
-                    <SelectValue placeholder="Selecione um professor">
+                    <SelectValue placeholder={t("selectProfessorPlaceholder")}>
                       {(value: string) => professorName(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -732,13 +871,13 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
               </Field>
 
               <Field data-invalid={!!errors.subjectId}>
-                <FieldLabel htmlFor="qualification-subject">Disciplina</FieldLabel>
+                <FieldLabel htmlFor="qualification-subject">{t("selectSubjectLabel")}</FieldLabel>
                 <Select
                   value={subjectId ? String(subjectId) : ""}
                   onValueChange={(value) => setValue("subjectId", Number(value))}
                 >
                   <SelectTrigger id="qualification-subject" className="w-full">
-                    <SelectValue placeholder="Selecione uma disciplina">
+                    <SelectValue placeholder={t("selectSubjectPlaceholder")}>
                       {(value: string) => subjectLabel(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -759,7 +898,7 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
                 </p>
               )}
               <Button type="submit" disabled={createMutation.isPending} className="btn-gold">
-                {createMutation.isPending ? "Salvando..." : "Salvar"}
+                {createMutation.isPending ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -769,14 +908,21 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir qualificação?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteQualificationTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. "{deleting?.professorName}" não poderá mais
-              lecionar "{deleting?.subjectName}".
+              {t("deleteQualificationDescription", {
+                professor: deleting?.professorName,
+                subject: deleting?.subjectName,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 deleting &&
@@ -787,7 +933,7 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
               }
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -801,6 +947,7 @@ function QualificationsTab({ institutionId }: { institutionId: number }) {
 // ---------------------------------------------------------------------------
 
 function AvailabilityTab({ institutionId }: { institutionId: number }) {
+  const { t } = useTranslation("adminProfessors");
   const { user } = useAuth();
   const canManageAvailability = user?.role === "SUPER_ADMIN";
 
@@ -824,6 +971,7 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
   const [viewingProfessorId, setViewingProfessorId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<Availability | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     handleSubmit,
@@ -854,12 +1002,20 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
       queryClient.invalidateQueries({ queryKey });
       setDeleting(null);
     },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteAvailabilityError")));
+    },
   });
 
   function openCreate() {
     setFormError(null);
     reset({ professorId: 0, timeSlotId: 0 });
     setDialogOpen(true);
+  }
+
+  function openDelete(availability: Availability) {
+    setDeleteError(null);
+    setDeleting(availability);
   }
 
   function closeDialog() {
@@ -871,7 +1027,7 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
     try {
       await createMutation.mutateAsync(values);
     } catch {
-      setFormError("Não foi possível salvar a disponibilidade. Tente novamente.");
+      setFormError(t("saveAvailabilityError"));
     }
   }
 
@@ -891,7 +1047,7 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
       (a, b) =>
         DAY_OF_WEEK_ORDER.indexOf(a.timeSlotDayOfWeek) -
           DAY_OF_WEEK_ORDER.indexOf(b.timeSlotDayOfWeek) ||
-        a.timeSlotStartTime.localeCompare(b.timeSlotStartTime)
+        a.timeSlotStartTime.localeCompare(b.timeSlotStartTime),
     );
 
   return (
@@ -900,56 +1056,52 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
         <div className="flex justify-end">
           <Button variant="outline" onClick={openCreate}>
             <Plus className="size-4" />
-            Nova disponibilidade
+            {t("newAvailability")}
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          A disponibilidade é gerenciada pelo próprio professor.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("managedByProfessorNotice")}</p>
       )}
 
       <div className="card-elevated mt-4 rounded-2xl">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Professor</TableHead>
-              <TableHead>Disponibilidade</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("selectProfessorLabel")}</TableHead>
+              <TableHead>{t("columnAvailability")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && professors?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhum professor cadastrado.
+                  {t("noProfessorsRegistered")}
                 </TableCell>
               </TableRow>
             )}
             {professors?.map((professor) => {
               const count = (availabilities ?? []).filter(
-                (a) => a.professorId === professor.id
+                (a) => a.professorId === professor.id,
               ).length;
               return (
                 <TableRow key={professor.id}>
                   <TableCell className="font-medium">{professor.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "horário" : "horários"}
-                  </TableCell>
+                  <TableCell>{t("availabilityCount", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingProfessorId(professor.id)}
                     >
-                      Ver disponibilidade
+                      {t("viewAvailability")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -965,11 +1117,11 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
       >
         <DialogContent className="flex max-h-[85vh] flex-col">
           <DialogHeader>
-            <DialogTitle>Disponibilidade de {viewingProfessor?.name}</DialogTitle>
-            <DialogDescription>Horários em que este professor está disponível.</DialogDescription>
+            <DialogTitle>{t("availabilityOfProfessor", { professor: viewingProfessor?.name })}</DialogTitle>
+            <DialogDescription>{t("availabilityOfProfessorDescription")}</DialogDescription>
           </DialogHeader>
           {viewingAvailabilities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma disponibilidade cadastrada.</p>
+            <p className="text-sm text-muted-foreground">{t("noAvailabilityRegistered")}</p>
           ) : (
             <ul className="flex flex-col gap-2 overflow-y-auto">
               {viewingAvailabilities.map((availability) => (
@@ -986,7 +1138,8 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => setDeleting(availability)}
+                      aria-label={t("deleteAvailabilityAriaLabel")}
+                      onClick={() => openDelete(availability)}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
@@ -1001,21 +1154,19 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova disponibilidade</DialogTitle>
-            <DialogDescription>
-              Marca um horário em que o professor está disponível para lecionar.
-            </DialogDescription>
+            <DialogTitle>{t("newAvailabilityDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newAvailabilityDialogDescription")}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.professorId}>
-                <FieldLabel htmlFor="availability-professor">Professor</FieldLabel>
+                <FieldLabel htmlFor="availability-professor">{t("selectProfessorLabel")}</FieldLabel>
                 <Select
                   value={professorId ? String(professorId) : ""}
                   onValueChange={(value) => setValue("professorId", Number(value))}
                 >
                   <SelectTrigger id="availability-professor" className="w-full">
-                    <SelectValue placeholder="Selecione um professor">
+                    <SelectValue placeholder={t("selectProfessorPlaceholder")}>
                       {(value: string) => professorName(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -1031,13 +1182,13 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
               </Field>
 
               <Field data-invalid={!!errors.timeSlotId}>
-                <FieldLabel htmlFor="availability-time-slot">Horário</FieldLabel>
+                <FieldLabel htmlFor="availability-time-slot">{t("selectTimeSlotLabel")}</FieldLabel>
                 <Select
                   value={timeSlotId ? String(timeSlotId) : ""}
                   onValueChange={(value) => setValue("timeSlotId", Number(value))}
                 >
                   <SelectTrigger id="availability-time-slot" className="w-full">
-                    <SelectValue placeholder="Selecione um horário">
+                    <SelectValue placeholder={t("selectTimeSlotPlaceholder")}>
                       {(value: string) => timeSlotLabel(Number(value))}
                     </SelectValue>
                   </SelectTrigger>
@@ -1058,7 +1209,7 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
                 </p>
               )}
               <Button type="submit" disabled={createMutation.isPending} className="btn-gold">
-                {createMutation.isPending ? "Salvando..." : "Salvar"}
+                {createMutation.isPending ? t("common:actions.saving") : t("common:actions.save")}
               </Button>
             </FieldGroup>
           </form>
@@ -1068,13 +1219,16 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir disponibilidade?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteAvailabilityTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("common:deleteConfirmIrreversible")}</AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 deleting &&
@@ -1085,7 +1239,7 @@ function AvailabilityTab({ institutionId }: { institutionId: number }) {
               }
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

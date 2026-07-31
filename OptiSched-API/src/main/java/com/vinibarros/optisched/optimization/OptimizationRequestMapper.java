@@ -20,7 +20,13 @@ public class OptimizationRequestMapper {
                 ? professor.getAvailabilities().stream().map(a -> a.getTimeSlot().getId()).toList()
                 : Collections.emptyList();
 
-        return new ProfessorInput(professor.getId(), qualifiedSubjectIds, availableTimeSlotIds);
+        return new ProfessorInput(
+                professor.getId(),
+                qualifiedSubjectIds,
+                availableTimeSlotIds,
+                professor.getMaxDailyTimeSlots(),
+                professor.getMaxWeeklyTimeSlots()
+        );
     }
 
     public SubjectOfferingInput toSubjectOfferingInput(SubjectOffering offering) {
@@ -30,12 +36,13 @@ public class OptimizationRequestMapper {
                 offering.getCourse().getId(),
                 offering.getSubject().getWorkload(),
                 offering.getExpectedStudents(),
-                offering.getRecommendedSemester()
+                offering.getRecommendedSemester(),
+                offering.getSubject().getRequiredRoomType()
         );
     }
 
     public ClassroomInput toClassroomInput(Classroom classroom) {
-        return new ClassroomInput(classroom.getId(), classroom.getCapacity());
+        return new ClassroomInput(classroom.getId(), classroom.getCapacity(), classroom.getType());
     }
 
     public TimeSlotInput toTimeSlotInput(TimeSlot timeSlot) {
@@ -47,19 +54,32 @@ public class OptimizationRequestMapper {
         );
     }
 
+    public LockedAssignmentInput toLockedAssignmentInput(ScheduleEntry entry) {
+        return new LockedAssignmentInput(
+                entry.getSubjectOffering().getId(),
+                entry.getProfessor().getId(),
+                entry.getClassroom().getId(),
+                entry.getTimeSlot().getId()
+        );
+    }
+
     public OptimizationRequest buildRequest(
             List<Professor> professors,
             List<SubjectOffering> offerings,
             List<Classroom> classrooms,
             List<TimeSlot> timeSlots,
-            ObjectiveWeightsInput weights
+            ObjectiveWeightsInput weights,
+            List<Long> preferredTimeSlotIds,
+            List<LockedAssignmentInput> lockedAssignments
     ) {
         return new OptimizationRequest(
                 professors.stream().map(this::toProfessorInput).toList(),
                 offerings.stream().map(this::toSubjectOfferingInput).toList(),
                 classrooms.stream().map(this::toClassroomInput).toList(),
                 timeSlots.stream().map(this::toTimeSlotInput).toList(),
-                weights
+                weights,
+                preferredTimeSlotIds,
+                lockedAssignments
         );
     }
 }

@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,8 @@ import {
   deleteUser,
   listUsers,
 } from "@/api/users";
+import { exportProfessorsCsv, importProfessorsCsv } from "@/api/professors";
+import { CsvImportExport, type CsvColumnSpec } from "@/components/admin/CsvImportExport";
 import {
   createUserSchema,
   type CreateUserFormValues,
@@ -52,7 +56,26 @@ import type { ManagedUser } from "@/types/User";
 
 type CreateDialog = "admin" | "professor" | "super-admin" | null;
 
+function useProfessorCsvColumns(): CsvColumnSpec[] {
+  const { t } = useTranslation("adminUsers");
+  return [
+    { name: "name", description: t("professorCsvColumns.name") },
+    { name: "email", description: t("professorCsvColumns.email") },
+    { name: "password", description: t("professorCsvColumns.password") },
+    { name: "maxDailyTimeSlots", description: t("professorCsvColumns.maxDailyTimeSlots") },
+    { name: "maxWeeklyTimeSlots", description: t("professorCsvColumns.maxWeeklyTimeSlots") },
+  ];
+}
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error) && typeof error.response?.data?.message === "string") {
+    return error.response.data.message;
+  }
+  return fallback;
+}
+
 export function UsersPage() {
+  const { t } = useTranslation("adminUsers");
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { selectedInstitutionId: institutionId } = useSelectedInstitution();
@@ -62,11 +85,9 @@ export function UsersPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-primary">Usuários</h1>
+          <h1 className="text-xl font-semibold text-primary">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {isSuperAdmin
-              ? "Crie contas de Super Admin, Admin e Professor, e gerencie os usuários de cada instituição."
-              : "Crie contas de Professor e gerencie os usuários da sua instituição."}
+            {isSuperAdmin ? t("subtitleSuperAdmin") : t("subtitleAdmin")}
           </p>
         </div>
 
@@ -75,7 +96,7 @@ export function UsersPage() {
             <>
               <Button variant="outline" onClick={() => setOpenDialog("super-admin")}>
                 <Plus className="size-4" />
-                Novo Super Admin
+                {t("newSuperAdmin")}
               </Button>
               <Button
                 variant="outline"
@@ -83,7 +104,7 @@ export function UsersPage() {
                 disabled={!institutionId}
               >
                 <Plus className="size-4" />
-                Novo Admin
+                {t("newAdmin")}
               </Button>
             </>
           )}
@@ -93,7 +114,7 @@ export function UsersPage() {
             disabled={!institutionId}
           >
             <Plus className="size-4" />
-            Novo Professor
+            {t("newProfessor")}
           </Button>
         </div>
       </div>
@@ -104,9 +125,7 @@ export function UsersPage() {
         ) : institutionId ? (
           <UsersTable institutionId={institutionId} isSuperAdmin={isSuperAdmin} />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Selecione uma instituição para ver seus usuários.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("selectInstitutionNotice")}</p>
         )}
       </div>
 
@@ -116,14 +135,12 @@ export function UsersPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Admin</DialogTitle>
-            <DialogDescription>
-              Cria uma conta de Admin para a instituição selecionada.
-            </DialogDescription>
+            <DialogTitle>{t("newAdminDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newAdminDialogDescription")}</DialogDescription>
           </DialogHeader>
           {institutionId && (
             <CreateUserForm
-              submitLabel="Criar Admin"
+              submitLabel={t("createAdmin")}
               onSubmit={(values) => createAdmin(values, institutionId)}
               invalidateUsersFor={institutionId}
               onCreated={() => setOpenDialog(null)}
@@ -138,14 +155,12 @@ export function UsersPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Professor</DialogTitle>
-            <DialogDescription>
-              Cria uma conta de Professor para a instituição selecionada.
-            </DialogDescription>
+            <DialogTitle>{t("newProfessorDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newProfessorDialogDescription")}</DialogDescription>
           </DialogHeader>
           {institutionId && (
             <CreateUserForm
-              submitLabel="Criar Professor"
+              submitLabel={t("createProfessor")}
               onSubmit={(values) => createProfessor(values, institutionId)}
               invalidateUsersFor={institutionId}
               onCreated={() => setOpenDialog(null)}
@@ -160,13 +175,11 @@ export function UsersPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Super Admin</DialogTitle>
-            <DialogDescription>
-              Cria uma nova conta com acesso total à plataforma.
-            </DialogDescription>
+            <DialogTitle>{t("newSuperAdminDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("newSuperAdminDialogDescription")}</DialogDescription>
           </DialogHeader>
           <CreateUserForm
-            submitLabel="Criar Super Admin"
+            submitLabel={t("createSuperAdmin")}
             onSubmit={createSuperAdmin}
             onCreated={() => setOpenDialog(null)}
           />
@@ -177,12 +190,15 @@ export function UsersPage() {
 }
 
 function UsersGroupedByInstitution() {
+  const { t } = useTranslation("adminUsers");
+  const professorCsvColumns = useProfessorCsvColumns();
   const queryClient = useQueryClient();
   const { institutions, itemsByInstitution: usersByInstitution, isLoading } =
     useGroupedByInstitution("users", listUsers);
 
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: ({ userId, institutionId }: { userId: number; institutionId: number }) =>
@@ -191,7 +207,15 @@ function UsersGroupedByInstitution() {
       queryClient.invalidateQueries({ queryKey: ["users", variables.institutionId] });
       setDeletingUser(null);
     },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteUserError")));
+    },
   });
+
+  function openDelete(user: ManagedUser) {
+    setDeleteError(null);
+    setDeletingUser(user);
+  }
 
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
   const viewingUsers =
@@ -203,23 +227,23 @@ function UsersGroupedByInstitution() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Instituição</TableHead>
-              <TableHead>Usuários</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("columnInstitution")}</TableHead>
+              <TableHead>{t("columnUsers")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  Nenhuma instituição cadastrada.
+                  {t("noInstitutions")}
                 </TableCell>
               </TableRow>
             )}
@@ -228,16 +252,14 @@ function UsersGroupedByInstitution() {
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>
-                    {count} {count === 1 ? "usuário" : "usuários"}
-                  </TableCell>
+                  <TableCell>{t("userCount", { count })}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      Ver usuários
+                      {t("viewUsers")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -253,11 +275,24 @@ function UsersGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col">
           <DialogHeader>
-            <DialogTitle>Usuários de {viewingInstitution?.name}</DialogTitle>
-            <DialogDescription>Todos os usuários dessa instituição.</DialogDescription>
+            <DialogTitle>{t("usersOfInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
+            <DialogDescription>{t("allUsersOfInstitution")}</DialogDescription>
           </DialogHeader>
+          {viewingInstitutionId !== null && (
+            <CsvImportExport
+              onImport={(file) => importProfessorsCsv(file, viewingInstitutionId)}
+              onExport={() => exportProfessorsCsv(viewingInstitutionId)}
+              exportFilename="professores.csv"
+              onImported={() => {
+                queryClient.invalidateQueries({ queryKey: ["users", viewingInstitutionId] });
+                queryClient.invalidateQueries({ queryKey: ["professors", viewingInstitutionId] });
+              }}
+              entityLabel="professores"
+              columns={professorCsvColumns}
+            />
+          )}
           {viewingUsers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum usuário nessa instituição.</p>
+            <p className="text-sm text-muted-foreground">{t("noUsersInInstitution")}</p>
           ) : (
             <ul className="flex flex-col gap-2 overflow-y-auto">
               {viewingUsers.map((user) => (
@@ -274,7 +309,8 @@ function UsersGroupedByInstitution() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => setDeletingUser(user)}
+                      aria-label={t("deleteUserAriaLabel", { name: user.name })}
+                      onClick={() => openDelete(user)}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
@@ -289,14 +325,18 @@ function UsersGroupedByInstitution() {
       <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteUserTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O usuário "{deletingUser?.name}" perderá o
-              acesso imediatamente.
+              {t("deleteUserDescription", { name: deletingUser?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 deletingUser &&
@@ -305,7 +345,7 @@ function UsersGroupedByInstitution() {
               }
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -321,6 +361,8 @@ function UsersTable({
   institutionId: number;
   isSuperAdmin: boolean;
 }) {
+  const { t } = useTranslation("adminUsers");
+  const professorCsvColumns = useProfessorCsvColumns();
   const queryClient = useQueryClient();
   const usersQueryKey = ["users", institutionId] as const;
 
@@ -330,6 +372,7 @@ function UsersTable({
   });
 
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (userId: number) => deleteUser(userId, institutionId),
@@ -337,32 +380,54 @@ function UsersTable({
       queryClient.invalidateQueries({ queryKey: usersQueryKey });
       setDeletingUser(null);
     },
+    onError: (error) => {
+      setDeleteError(extractErrorMessage(error, t("deleteUserError")));
+    },
   });
+
+  function openDelete(user: ManagedUser) {
+    setDeleteError(null);
+    setDeletingUser(user);
+  }
 
   return (
     <>
-      <div className="card-elevated rounded-2xl">
+      <div className="flex justify-end">
+        <CsvImportExport
+          onImport={(file) => importProfessorsCsv(file, institutionId)}
+          onExport={() => exportProfessorsCsv(institutionId)}
+          exportFilename="professores.csv"
+          onImported={() => {
+            queryClient.invalidateQueries({ queryKey: usersQueryKey });
+            queryClient.invalidateQueries({ queryKey: ["professors", institutionId] });
+          }}
+          entityLabel="professores"
+          columns={professorCsvColumns}
+        />
+      </div>
+
+      <div className="card-elevated mt-4 rounded-2xl">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Papel</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("formName")}</TableHead>
+              <TableHead>{t("formEmail")}</TableHead>
+              <TableHead>{t("columnRole")}</TableHead>
+              <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Carregando...
+                  {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && users?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Nenhum usuário nessa instituição.
+                  {t("noUsersInInstitutionTable")}
                 </TableCell>
               </TableRow>
             )}
@@ -378,7 +443,8 @@ function UsersTable({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => setDeletingUser(user)}
+                      aria-label={t("deleteUserAriaLabel", { name: user.name })}
+                      onClick={() => openDelete(user)}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
@@ -396,19 +462,23 @@ function UsersTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteUserTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O usuário "{deletingUser?.name}" perderá o
-              acesso imediatamente.
+              {t("deleteUserDescription", { name: deletingUser?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {deleteError}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              {deleteMutation.isPending ? t("common:actions.deleting") : t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -428,6 +498,7 @@ function CreateUserForm({
   invalidateUsersFor?: number;
   onCreated: () => void;
 }) {
+  const { t } = useTranslation("adminUsers");
   const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -458,7 +529,7 @@ function CreateUserForm({
     try {
       await mutation.mutateAsync(values);
     } catch {
-      setFormError("Não foi possível criar o usuário. Verifique os dados e tente novamente.");
+      setFormError(t("createUserError"));
     }
   }
 
@@ -466,19 +537,19 @@ function CreateUserForm({
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <FieldGroup>
         <Field data-invalid={!!errors.name}>
-          <FieldLabel htmlFor="user-name">Nome</FieldLabel>
+          <FieldLabel htmlFor="user-name">{t("formName")}</FieldLabel>
           <Input id="user-name" {...register("name")} />
           <FieldError errors={[errors.name]} />
         </Field>
 
         <Field data-invalid={!!errors.email}>
-          <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
+          <FieldLabel htmlFor="user-email">{t("formEmail")}</FieldLabel>
           <Input id="user-email" type="email" {...register("email")} />
           <FieldError errors={[errors.email]} />
         </Field>
 
         <Field data-invalid={!!errors.password}>
-          <FieldLabel htmlFor="user-password">Senha</FieldLabel>
+          <FieldLabel htmlFor="user-password">{t("formPassword")}</FieldLabel>
           <Input id="user-password" type="password" {...register("password")} />
           <FieldError errors={[errors.password]} />
         </Field>
@@ -490,7 +561,7 @@ function CreateUserForm({
         )}
 
         <Button type="submit" disabled={mutation.isPending} className="btn-gold">
-          {mutation.isPending ? "Criando..." : submitLabel}
+          {mutation.isPending ? t("creating") : submitLabel}
         </Button>
       </FieldGroup>
     </form>

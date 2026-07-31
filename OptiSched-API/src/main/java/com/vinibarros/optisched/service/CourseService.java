@@ -6,10 +6,12 @@ import com.vinibarros.optisched.dto.response.CourseResponse;
 import com.vinibarros.optisched.entity.Course;
 import com.vinibarros.optisched.entity.Institution;
 import com.vinibarros.optisched.exception.DuplicateResourceException;
+import com.vinibarros.optisched.exception.ResourceInUseException;
 import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.CourseMapper;
 import com.vinibarros.optisched.repository.CourseRepository;
 import com.vinibarros.optisched.repository.InstitutionRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +82,10 @@ public class CourseService {
         if(!courseRepository.existsByIdAndInstitutionId(id, institutionId)){
             throw new ResourceNotFoundException("Course", id);
         }
-        courseRepository.deleteById(id);
+        try {
+            courseRepository.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResourceInUseException("Course cannot be deleted because it is referenced by existing SubjectOffering records");
+        }
     }
 }

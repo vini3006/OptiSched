@@ -25,3 +25,11 @@ export async function login(credentials: LoginCredentials): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   await httpClient.post("/auth/logout");
 }
+
+export async function forgotPassword(email: string): Promise<void> {
+  await httpClient.post("/auth/forgot-password", { email });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await httpClient.post("/auth/reset-password", { token, newPassword });
+}

@@ -20,6 +20,7 @@ public record ScheduleEntryResponse(
         Long timeSlotId,
         DayOfWeek dayOfWeek,
         LocalTime startTime,
-        LocalTime endTime
+        LocalTime endTime,
+        boolean locked
 )
 {}
