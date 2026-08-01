@@ -1,3 +1,4 @@
+import logoWhite from "@/assets/logos/logo-white.svg";
 import { navLinks } from "@/constants/landing";
 
 export function Footer() {
@@ -6,7 +7,10 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <p className="font-display text-2xl font-bold">OptiSched</p>
+            <div className="flex items-center gap-2.5">
+              <img src={logoWhite} alt="" className="size-8" />
+              <p className="font-display text-2xl font-bold">OptiSched</p>
+            </div>
             <p className="mt-2 max-w-sm text-sm text-primary-foreground/70">
               Transformando a complexidade das grades acadêmicas em soluções inteligentes.
             </p>

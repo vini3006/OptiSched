@@ -1,11 +1,11 @@
 import { ShieldCheck, Sparkles } from "lucide-react";
 
-import heroMockup from "@/assets/images/hero-mockup.jpeg";
+import heroSchedule from "@/assets/images/hero-schedule.webp";
 
 export function HeroSection() {
   return (
     <section id="inicio" className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20">
-      <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
+      <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.1fr]">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-secondary px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="size-3.5 text-accent" />
@@ -43,18 +43,22 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative perspective-[1800px]">
           <div
             aria-hidden
-            className="absolute -inset-6 rounded-[2rem] bg-accent/10 blur-2xl"
+            className="absolute -inset-8 rounded-[2rem] bg-accent/15 blur-3xl"
           />
-          <img
-            src={heroMockup}
-            alt="Painel do OptiSched com grade horária acadêmica otimizada"
-            width={1280}
-            height={1024}
-            className="card-elevated relative w-full rounded-2xl"
-          />
+          <div
+            className="relative transform-3d rotate-x-[4deg] rotate-y-[-10deg] rounded-[1.75rem] border border-border bg-card p-3 shadow-2xl transition-transform duration-500 ease-out hover:rotate-x-[2deg] hover:rotate-y-[-5deg]"
+          >
+            <img
+              src={heroSchedule}
+              alt="Grade horária acadêmica gerada automaticamente pelo OptiSched"
+              width={2994}
+              height={2236}
+              className="w-full rounded-xl border border-border/60"
+            />
+          </div>
         </div>
       </div>
     </section>
