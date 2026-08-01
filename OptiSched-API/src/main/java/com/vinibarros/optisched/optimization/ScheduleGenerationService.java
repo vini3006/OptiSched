@@ -5,7 +5,6 @@ import com.vinibarros.optisched.dto.request.ScheduleGenerationRequest;
 import com.vinibarros.optisched.dto.response.ScheduleResponse;
 import com.vinibarros.optisched.email.EmailSender;
 import com.vinibarros.optisched.entity.*;
-import com.vinibarros.optisched.enums.PreferredShift;
 import com.vinibarros.optisched.enums.ScheduleStatus;
 import com.vinibarros.optisched.exception.InvalidScheduleException;
 import com.vinibarros.optisched.exception.NoScheduleEntriesException;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +33,7 @@ public class ScheduleGenerationService {
     private final ScheduleMapper scheduleMapper;
     private final ScheduleEntryRepository scheduleEntryRepository;
     private final InstitutionRepository institutionRepository;
+    private final CourseRepository courseRepository;
     private final OptimizationRequestMapper requestMapper;
     private final OptimizerClient optimizerClient;
     private final EmailSender emailSender;
@@ -49,6 +48,7 @@ public class ScheduleGenerationService {
             ScheduleMapper scheduleMapper,
             ScheduleEntryRepository scheduleEntryRepository,
             InstitutionRepository institutionRepository,
+            CourseRepository courseRepository,
             OptimizationRequestMapper requestMapper,
             OptimizerClient optimizerClient,
             EmailSender emailSender
@@ -62,6 +62,7 @@ public class ScheduleGenerationService {
         this.scheduleMapper = scheduleMapper;
         this.scheduleEntryRepository = scheduleEntryRepository;
         this.institutionRepository = institutionRepository;
+        this.courseRepository = courseRepository;
         this.requestMapper = requestMapper;
         this.optimizerClient = optimizerClient;
         this.emailSender = emailSender;
@@ -72,8 +73,14 @@ public class ScheduleGenerationService {
         Semester semester = semesterRepository.findByIdAndInstitutionId(semesterId, institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Semester", semesterId));
 
+        Course course = options.courseId() != null
+                ? courseRepository.findByIdAndInstitutionId(options.courseId(), institutionId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Course", options.courseId()))
+                : null;
+
         List<SubjectOffering> offerings = subjectOfferingRepository.findBySemesterId(semesterId).stream()
                 .filter(o -> o.getRecommendedSemester() != null)
+                .filter(o -> course == null || o.getCourse().getId().equals(course.getId()))
                 .toList();
 
         if (offerings.isEmpty()) {
@@ -98,25 +105,45 @@ public class ScheduleGenerationService {
 
         List<Long> preferredTimeSlotIds = options.preferredShift() != null
                 ? timeSlots.stream()
-                        .filter(t -> matchesShift(t.getStartTime(), options.preferredShift()))
+                        .filter(t -> requestMapper.matchesShift(t.getStartTime(), options.preferredShift()))
                         .map(TimeSlot::getId)
                         .toList()
                 : Collections.emptyList();
 
-        // Aulas travadas na grade ativa anterior (do mesmo semestre) são
-        // repassadas ao otimizador como atribuições fixas, para que a nova
-        // geração as mantenha exatamente como estão.
-        Schedule previousActive = scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(
-                semesterId, ScheduleStatus.ACTIVE, institutionId
+        // Aulas travadas na grade ativa anterior DESTE curso (ou da grade
+        // completa, se courseId for nulo) são repassadas ao otimizador como
+        // atribuições fixas, para que a nova geração as mantenha exatamente
+        // como estão.
+        Long courseId = course != null ? course.getId() : null;
+        Schedule previousActive = scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(
+                semesterId, ScheduleStatus.ACTIVE, institutionId, courseId
         );
-        List<LockedAssignmentInput> lockedAssignments = previousActive != null
-                ? scheduleEntryRepository.findByScheduleIdAndLockedTrue(previousActive.getId()).stream()
-                        .map(requestMapper::toLockedAssignmentInput)
-                        .toList()
-                : Collections.emptyList();
+        List<LockedAssignmentInput> lockedAssignments = new java.util.ArrayList<>();
+        if (previousActive != null) {
+            scheduleEntryRepository.findByScheduleIdAndLockedTrue(previousActive.getId()).stream()
+                    .map(requestMapper::toLockedAssignmentInput)
+                    .forEach(lockedAssignments::add);
+        }
+
+        // Geração escopada a um curso específico: as aulas já comprometidas
+        // nas grades ATIVAS de outros cursos do mesmo semestre entram como
+        // atribuições fixas adicionais (mesmo mecanismo de lock acima, fonte
+        // diferente), para que o solver nunca escale professor/sala já
+        // ocupado por outro curso. Sem escopo (courseId nulo, grade
+        // completa), não existem "outras grades" — tudo está sendo gerado
+        // junto, como sempre foi.
+        if (course != null) {
+            Long previousActiveId = previousActive != null ? previousActive.getId() : null;
+            scheduleRepository.findAllBySemesterIdAndStatusAndInstitutionId(semesterId, ScheduleStatus.ACTIVE, institutionId).stream()
+                    .filter(s -> !s.getId().equals(previousActiveId))
+                    .flatMap(s -> scheduleEntryRepository.findByScheduleId(s.getId()).stream())
+                    .map(requestMapper::toLockedAssignmentInput)
+                    .forEach(lockedAssignments::add);
+        }
 
         OptimizationRequest request = requestMapper.buildRequest(
-                professors, offerings, classrooms, timeSlots, weights, preferredTimeSlotIds, lockedAssignments
+                professors, offerings, classrooms, timeSlots, weights, preferredTimeSlotIds, lockedAssignments,
+                options.solverTimeLimitSeconds()
         );
 
         OptimizationResponse response = optimizerClient.optimize(request);
@@ -133,7 +160,7 @@ public class ScheduleGenerationService {
             scheduleRepository.save(previousActive);
         }
 
-        Schedule schedule = scheduleMapper.toEntity(semester, institution);
+        Schedule schedule = scheduleMapper.toEntity(semester, institution, course);
         schedule.setGeneratedAt(LocalDateTime.now());
         schedule.setStatus(ScheduleStatus.ACTIVE);
         schedule.setVersion((int) scheduleRepository.countBySemesterIdAndInstitutionId(semesterId, institutionId) + 1);
@@ -170,13 +197,5 @@ public class ScheduleGenerationService {
                 .filter(Objects::nonNull)
                 .filter(p -> p.getUser() != null)
                 .forEach(p -> emailSender.sendScheduleChangedEmail(p.getUser().getEmail(), p.getName()));
-    }
-
-    private boolean matchesShift(LocalTime startTime, PreferredShift shift) {
-        return switch (shift) {
-            case MORNING -> startTime.isBefore(LocalTime.NOON);
-            case AFTERNOON -> !startTime.isBefore(LocalTime.NOON) && startTime.isBefore(LocalTime.of(18, 0));
-            case EVENING -> !startTime.isBefore(LocalTime.of(18, 0));
-        };
     }
 }

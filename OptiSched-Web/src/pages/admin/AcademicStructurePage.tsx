@@ -15,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { PREFERRED_SHIFT_LABELS } from "@/lib/enum-labels";
+import type { PreferredShift } from "@/types/Schedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -272,11 +275,15 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
-    defaultValues: { name: "", totalSemesters: 1 },
+    defaultValues: { name: "", totalSemesters: 1, allowedShift: null },
   });
+
+  const allowedShift = watch("allowedShift");
 
   const createMutation = useMutation({
     mutationFn: (values: CourseFormValues) => createCourse(values, institutionId),
@@ -306,14 +313,14 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ name: "", totalSemesters: 1 });
+    reset({ name: "", totalSemesters: 1, allowedShift: null });
     setDialogOpen(true);
   }
 
   function openEdit(course: Course) {
     setEditing(course);
     setFormError(null);
-    reset({ name: course.name, totalSemesters: course.totalSemesters });
+    reset({ name: course.name, totalSemesters: course.totalSemesters, allowedShift: course.allowedShift });
     setDialogOpen(true);
   }
 
@@ -352,20 +359,21 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
             <TableRow>
               <TableHead>{t("columnName")}</TableHead>
               <TableHead>{t("courses.columnTotalSemesters")}</TableHead>
+              <TableHead>{t("courses.restrictShiftLabel")}</TableHead>
               <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && courses?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   {t("courses.noneRegistered")}
                 </TableCell>
               </TableRow>
@@ -374,6 +382,9 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
               <TableRow key={course.id}>
                 <TableCell className="font-medium">{course.name}</TableCell>
                 <TableCell>{course.totalSemesters}</TableCell>
+                <TableCell>
+                  {course.allowedShift ? PREFERRED_SHIFT_LABELS[course.allowedShift] : "—"}
+                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
@@ -422,6 +433,36 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
                   {...register("totalSemesters", { valueAsNumber: true })}
                 />
                 <FieldError errors={[errors.totalSemesters]} />
+              </Field>
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel htmlFor="course-restrict-shift">{t("courses.restrictShiftLabel")}</FieldLabel>
+                  <Switch
+                    id="course-restrict-shift"
+                    checked={allowedShift !== null}
+                    onCheckedChange={(checked) => setValue("allowedShift", checked ? "MORNING" : null)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t("courses.restrictShiftDescription")}</p>
+                {allowedShift !== null && (
+                  <Select
+                    value={allowedShift}
+                    onValueChange={(value) => setValue("allowedShift", value as PreferredShift)}
+                  >
+                    <SelectTrigger className="mt-2 w-40">
+                      <SelectValue placeholder={t("courses.shiftPlaceholder")}>
+                        {(value: string) => PREFERRED_SHIFT_LABELS[value as PreferredShift]}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                      {(Object.keys(PREFERRED_SHIFT_LABELS) as PreferredShift[]).map((shift) => (
+                        <SelectItem key={shift} value={shift}>
+                          {PREFERRED_SHIFT_LABELS[shift]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">
@@ -561,9 +602,10 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
     formState: { errors },
   } = useForm<SubjectFormValues>({
     resolver: zodResolver(subjectSchema),
-    defaultValues: { code: "", name: "", workload: 0, requiredRoomType: null },
+    defaultValues: { code: "", name: "", workload: 0, requiredRoomType: null, supportsCoTeaching: false },
   });
   const requiredRoomType = watch("requiredRoomType");
+  const supportsCoTeaching = watch("supportsCoTeaching");
 
   const createMutation = useMutation({
     mutationFn: (values: SubjectFormValues) => createSubject(values, institutionId),
@@ -593,7 +635,7 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ code: "", name: "", workload: 0, requiredRoomType: null });
+    reset({ code: "", name: "", workload: 0, requiredRoomType: null, supportsCoTeaching: false });
     setDialogOpen(true);
   }
 
@@ -605,6 +647,7 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
       name: subject.name,
       workload: subject.workload,
       requiredRoomType: subject.requiredRoomType,
+      supportsCoTeaching: subject.supportsCoTeaching,
     });
     setDialogOpen(true);
   }
@@ -759,6 +802,17 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
                   </SelectContent>
                 </Select>
                 <FieldError errors={[errors.requiredRoomType]} />
+              </Field>
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel htmlFor="subject-co-teaching">{t("subjects.supportsCoTeachingLabel")}</FieldLabel>
+                  <Switch
+                    id="subject-co-teaching"
+                    checked={supportsCoTeaching}
+                    onCheckedChange={(checked) => setValue("supportsCoTeaching", checked)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t("subjects.supportsCoTeachingDescription")}</p>
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">

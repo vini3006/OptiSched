@@ -10,7 +10,8 @@ export default {
   classroomCsvColumns: {
     number: "Número/identificação única da sala.",
     capacity: "Capacidade máxima de alunos.",
-    type: "Tipo da sala: COMMON ou LABORATORY.",
+    type: "Tipo da sala: COMMON, LABORATORY, AUDITORIUM ou COMPUTER_LAB.",
+    building: "Prédio onde a sala fica (opcional).",
   },
   timeSlotCsvColumns: {
     dayOfWeek: "Dia da semana em inglês (ex.: MONDAY, TUESDAY, WEDNESDAY...).",
@@ -43,6 +44,7 @@ export default {
   formNumber: "Número",
   formCapacity: "Capacidade de Alunos",
   formType: "Tipo de sala",
+  formBuilding: "Prédio",
   saveClassroomError: "Não foi possível salvar a sala. Tente novamente.",
   deleteClassroomTitle: "Excluir sala?",
   deleteClassroomDescription:

@@ -52,6 +52,8 @@ export async function generateSchedule(
       classroomStability: options.classroomStability,
       preferredShift: options.preferredShift,
       preferredShiftWeight: options.preferredShiftWeight,
+      courseId: options.courseId,
+      solverTimeLimitSeconds: options.solverTimeLimitSeconds,
     },
     { params: { semesterId, institutionIdSuperAdmin: institutionId } }
   );

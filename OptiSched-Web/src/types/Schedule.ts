@@ -8,6 +8,7 @@ export type Schedule = {
   generatedAt: string;
   status: ScheduleStatus;
   version: number;
+  courseId: number | null;
 };
 
 export type EntryDiff = {
@@ -33,4 +34,6 @@ export type ScheduleGenerationOptions = {
   classroomStability: number;
   preferredShift: PreferredShift | null;
   preferredShiftWeight: number | null;
+  courseId: number | null;
+  solverTimeLimitSeconds: number | null;
 };

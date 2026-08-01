@@ -41,6 +41,17 @@ public class Schedule extends Auditable {
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;
 
+    /**
+     * Scopes this schedule to a single course — null means it covers the
+     * whole institution (every course together), which is the original,
+     * still-default behavior. A non-null course lets a schedule be
+     * generated/regenerated for just that course, while other courses' own
+     * active schedules stay untouched.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
+    private Course course;
+
     @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ScheduleEntry> scheduleEntries = new HashSet<>();
 }

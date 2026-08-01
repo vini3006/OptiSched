@@ -9,6 +9,7 @@ import { GitCompare, Plus, Power, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -21,8 +22,10 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -102,9 +105,19 @@ function timeSlotLabel(timeSlots: TimeSlot[] | undefined, timeSlotId: number) {
  * Java) — aqui elas são traduzidas pra frases específicas em português antes
  * de aparecer pro Admin, em vez de vazar o texto cru da API.
  */
-function translateScheduleEntryError(t: (key: string) => string, message: string | undefined): string {
+function translateScheduleEntryError(
+  t: (key: string, options?: Record<string, string>) => string,
+  message: string | undefined
+): string {
   if (!message) return t("error.generic");
 
+  if (message.includes("swapping would place")) {
+    const [, displaced, blocking] = message.match(/"([^"]+)".*"([^"]+)"/) ?? [];
+    if (displaced && blocking) {
+      return t("error.sameCourseSemesterSwap", { displaced, blocking });
+    }
+    return t("error.sameCourseSemester");
+  }
   if (message.includes("is not qualified to teach")) {
     return t("error.notQualified");
   }
@@ -201,6 +214,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const [deletingSchedule, setDeletingSchedule] = useState<Schedule | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [moveErrorMessage, setMoveErrorMessage] = useState<string | null>(null);
 
   const sortedSchedules = [...(schedules ?? [])].sort(
     (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
@@ -300,7 +314,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       queryClient.invalidateQueries({ queryKey: entriesQueryKey });
     },
     onError: (error) => {
-      setActionError(
+      setMoveErrorMessage(
         isAxiosError(error) && error.response?.data?.message
           ? translateScheduleEntryError(t, error.response.data.message)
           : t("moveEntryError")
@@ -335,7 +349,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   function handleEntryDrop(entryId: number, day: DayOfWeek, startTime: string) {
     const targetSlot = timeSlots?.find((t) => t.dayOfWeek === day && t.startTime === startTime);
     if (!targetSlot) return;
-    setActionError(null);
+    setMoveErrorMessage(null);
     moveEntryMutation.mutate({ id: entryId, timeSlotId: targetSlot.id });
   }
 
@@ -371,6 +385,8 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       preferShift: false,
       preferredShift: "MORNING",
       preferredShiftWeight: 5,
+      courseId: null,
+      solverTimeLimitSeconds: null,
     },
   });
   const generateSemesterId = watch("semesterId");
@@ -381,6 +397,8 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const preferShift = watch("preferShift");
   const preferredShift = watch("preferredShift");
   const preferredShiftWeight = watch("preferredShiftWeight");
+  const generateCourseId = watch("courseId");
+  const solverTimeLimitSeconds = watch("solverTimeLimitSeconds");
 
   const generateMutation = useMutation({
     mutationFn: (values: GenerateScheduleFormValues) =>
@@ -393,6 +411,8 @@ function GradesContent({ institutionId }: { institutionId: number }) {
           classroomStability: values.classroomStability,
           preferredShift: values.preferShift ? values.preferredShift : null,
           preferredShiftWeight: values.preferShift ? values.preferredShiftWeight : null,
+          courseId: values.courseId,
+          solverTimeLimitSeconds: values.solverTimeLimitSeconds,
         },
         institutionId
       ),
@@ -444,6 +464,8 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       preferShift: false,
       preferredShift: "MORNING",
       preferredShiftWeight: 5,
+      courseId: null,
+      solverTimeLimitSeconds: null,
     });
     setGenerateOpen(true);
   }
@@ -608,6 +630,18 @@ function GradesContent({ institutionId }: { institutionId: number }) {
         )}
       </div>
 
+      <Dialog open={moveErrorMessage !== null} onOpenChange={(open) => !open && setMoveErrorMessage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("moveErrorTitle")}</DialogTitle>
+            <DialogDescription>{moveErrorMessage}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button className="btn-gold" />}>{t("moveErrorOkButton")}</DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={generateOpen} onOpenChange={(open) => !open && setGenerateOpen(false)}>
         <DialogContent>
           <DialogHeader>
@@ -636,6 +670,33 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                   </SelectContent>
                 </Select>
                 <FieldError errors={[errors.semesterId]} />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="generate-course">{t("generateCourseLabel")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("generateCourseDescription")}</p>
+                <Select
+                  value={generateCourseId !== null ? String(generateCourseId) : "ALL"}
+                  onValueChange={(value) => setValue("courseId", value === "ALL" ? null : Number(value))}
+                >
+                  <SelectTrigger id="generate-course" className="mt-1 w-full">
+                    <SelectValue placeholder={t("generateCourseAllOption")}>
+                      {(value: string) =>
+                        value === "ALL"
+                          ? t("generateCourseAllOption")
+                          : (courses?.find((c) => String(c.id) === value)?.name ?? value)
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                    <SelectItem value="ALL">{t("generateCourseAllOption")}</SelectItem>
+                    {courses?.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
 
               <Field>
@@ -757,6 +818,23 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                     </span>
                   </div>
                 )}
+              </Field>
+
+              <Field data-invalid={!!errors.solverTimeLimitSeconds}>
+                <FieldLabel htmlFor="generate-solver-time-limit">{t("solverTimeLimitLabel")}</FieldLabel>
+                <p className="text-xs text-muted-foreground">{t("solverTimeLimitDescription")}</p>
+                <Input
+                  id="generate-solver-time-limit"
+                  type="number"
+                  min={5}
+                  max={300}
+                  placeholder={t("solverTimeLimitPlaceholder")}
+                  value={solverTimeLimitSeconds ?? ""}
+                  onChange={(e) =>
+                    setValue("solverTimeLimitSeconds", e.target.value === "" ? null : Number(e.target.value))
+                  }
+                />
+                <FieldError errors={[errors.solverTimeLimitSeconds]} />
               </Field>
 
               {formError && (

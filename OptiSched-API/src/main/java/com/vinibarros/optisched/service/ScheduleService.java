@@ -55,7 +55,9 @@ public class ScheduleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
 
         if(scheduleRepository.existsBySemesterIdAndStatusAndInstitutionId(request.semesterId(), ScheduleStatus.ACTIVE, institutionId)){
-            Schedule deactivated = scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(request.semesterId(), ScheduleStatus.ACTIVE, institutionId);
+            // Manual creation always produces a course-less (whole-institution)
+            // schedule, so only that scope's active schedule gets deactivated here.
+            Schedule deactivated = scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(request.semesterId(), ScheduleStatus.ACTIVE, institutionId, null);
             if (deactivated != null) {
                 deactivated.setStatus(ScheduleStatus.INACTIVE);
             }
@@ -155,7 +157,11 @@ public class ScheduleService {
         if(schedule.getStatus() == ScheduleStatus.ACTIVE){
             schedule.setStatus(ScheduleStatus.INACTIVE);
         } else {
-            Schedule active = scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(schedule.getSemester().getId(), ScheduleStatus.ACTIVE, institutionId);
+            // Only the active schedule in the SAME scope (same course, or
+            // course-less) gets deactivated — activating one course's schedule
+            // must not touch another course's independently-active one.
+            Long scheduleCourseId = schedule.getCourse() != null ? schedule.getCourse().getId() : null;
+            Schedule active = scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(schedule.getSemester().getId(), ScheduleStatus.ACTIVE, institutionId, scheduleCourseId);
 
             if(active != null){
                 active.setStatus(ScheduleStatus.INACTIVE);

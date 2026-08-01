@@ -9,6 +9,7 @@ public record ScheduleResponse(
     Long semesterId,
     LocalDateTime generatedAt,
     ScheduleStatus status,
-    Integer version
+    Integer version,
+    Long courseId
 )
 {}

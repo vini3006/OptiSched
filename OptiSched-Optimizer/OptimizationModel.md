@@ -12,6 +12,8 @@ The mathematical model is composed of the following elements:
 - **Constraints**, ensuring the feasibility of the generated schedule.
 - **Objective function**, responsible for optimizing the quality of the timetable according to predefined criteria.
 
+The model is solved with [HiGHS](https://highs.dev/) (via the `highspy` bindings). HiGHS's row-based API (`model.addRow`) has no symbolic expression builder, so every constraint below is implemented as one or more explicit linear rows over the decision/auxiliary variable columns — the mapping from formula to code is intentionally 1:1, function-by-function, in `solver/constraints.py`.
+
 ## Sets
 
 The optimization model is defined over the following finite sets:
@@ -287,6 +289,86 @@ Each subject offering can occupy at most one classroom-professor combination per
 \forall o\in O, t\in T
 \]
 
+---
+
+#### (C16) Daily Classroom Stability
+
+Once a subject offering has been placed in a classroom on a given day, it cannot switch classrooms again on that same day. This is a **hard** guarantee — distinct from (S4) below, which only softly discourages using more than one classroom across the *entire week*. (C16) is scoped to a single day and admits no exceptions.
+
+Auxiliary variable:
+
+\[
+u^{day}_{ord}=
+\begin{cases}
+1,&\text{if subject offering }o\text{ uses classroom }r\text{ at least once on day }d\\
+0,&\text{otherwise}
+\end{cases}
+\]
+
+Linking (mirrors C15, but scoped per day):
+
+\[
+x_{port}\le u^{day}_{o,r,\text{day}(t)},
+\qquad
+\forall p\in P,\;o\in O,\;r\in R,\;t\in T
+\]
+
+Daily exclusivity:
+
+\[
+\sum_{r\in R}u^{day}_{ord}\le1,
+\qquad
+\forall o\in O,\;d\in D
+\]
+
+Because the linking constraint forces \(u^{day}_{ord}=1\) whenever offering \(o\) uses room \(r\) on day \(d\), the cap above makes it mathematically impossible for two different classrooms to both be "used" by the same offering on the same day.
+
+\(u_{or}\) (the pre-existing, week-scoped variable behind C15/S4) is unchanged and continues to softly encourage — but not force — using the same classroom across different days of the week.
+
+---
+
+### Same-Offering Constraints
+
+#### (C17) Same-Offering Daily Contiguity
+
+If a subject offering has more than one lecture on the same day, those lectures must be scheduled back-to-back, with no gap and no other offering's lecture interleaved in between. This is a **hard** guarantee — distinct from (S3) below, which only softly rewards blocking when the solver happens to produce it, without ever forcing it.
+
+The constraint uses the standard "run-start" linearization for enforcing that the 1's in a binary sequence form a single contiguous block, which — unlike the professor's \(f_{pd}/l_{pd}\) apparatus used for S1 — is self-contained and does not rely on objective-function cost pressure to settle at the right values.
+
+Auxiliary variable, defined for every \((o,t)\) where offering \(o\) can possibly occupy \(t\):
+
+\[
+s_{ot}=
+\begin{cases}
+1,&\text{if offering }o\text{ occupies }t\text{ but did not occupy the}\\
+&\text{previous time slot of the same day (or }t\text{ is the day's first slot)}\\
+0,&\text{otherwise}
+\end{cases}
+\]
+
+Linking:
+
+\[
+s_{ot}\ge\sum_{p\in P}\sum_{r\in R}x_{port},
+\qquad
+\forall o\in O,\;t=\text{first slot of its day}
+\]
+
+\[
+s_{ot}\ge\sum_{p\in P}\sum_{r\in R}x_{port}-\sum_{p\in P}\sum_{r\in R}x_{po,\text{prev}(t),r},
+\qquad
+\forall o\in O,\;t\in T:\text{prev}(t)\text{ exists in the same day}
+\]
+
+Contiguity cap:
+
+\[
+\sum_{t\in T_d}s_{ot}\le1,
+\qquad
+\forall o\in O,\;d\in D
+\]
+
+A schedule with a gap (e.g. offering \(o\) at slot 1 and slot 3 of a day, but not slot 2) always produces two distinct run-starts (\(s\) forced to 1 at both slot 1 and slot 3), violating the cap of 1 and making the pattern infeasible. A single contiguous block — however many lectures long — always produces exactly one run-start, satisfying the cap.
 
 ---
 
@@ -316,13 +398,19 @@ Prefer schedules in which the lectures of the same subject offering are distribu
 
 ### (S3) Same-Offering Block Preference
 
-Prefer grouping a subject offering's own repeated lectures on the same day into a contiguous block, instead of interleaving them with other offerings.
+Prefer grouping a subject offering's own repeated lectures on the same day into a contiguous block, instead of interleaving them with other offerings. Since (C17) now makes this outcome mandatory whenever it's feasible, this soft term is always fully collected in practice — it is kept in the objective for backward compatibility (and for the rare case where a same-day repeat itself, governed by S2, is unavoidable).
 
 ---
 
 ### (S4) Classroom Stability
 
-Prefer assigning all lectures of the same subject offering to the same classroom whenever possible.  
+Prefer assigning all lectures of the same subject offering to the same classroom whenever possible, **across the whole week**. Stability *within* a single day is no longer governed by this soft term — it's guaranteed by the (C16) hard constraint above. (S4) only has room left to act between different days.
+
+---
+
+### (S5) Preferred Time-of-Day
+
+Penalize scheduling lectures outside an optionally admin-configured preferred time-of-day window (e.g. "mornings only"). If no preferred window is configured, this term is a no-op.
 
 ---
 
@@ -341,22 +429,44 @@ Since the soft constraints depend on temporal structure (day grouping and slot o
 
 ### Auxiliary Variables
 
-- \(z_{pt} = \sum_{o\in O}\sum_{r\in R}x_{port}\): Indicates whether professor (p) has a lecture during time slot (t). This variable is effectively binary as a consequence of (C7).
+- \(z_{pt} = \sum_{o\in O}\sum_{r\in R}x_{port}\): Indicates whether professor (p) has a lecture during time slot (t).
 - \(f_{pd}, l_{pd} \ge 0\): First and last occupied slot position for professor \(p\) on day \(d\).
 - \(w_{pd} \in {0,1}\): Indicates whether professor \(p\) has at least one lecture on day \(d\).
 - \(b_{ot} \in {0,1}\), for \(t\) such that \(\text{next}(t)\) exists: Indicates a back-to-back lecture pair of offering \(o\)'s own sessions between \(t\) and \(\text{next}(t)\).
 - \(v_{od} \in \Z_{\ge 0}\): Number of lectures of offering \(o\) scheduled on day \(d\), in excess of one.
 - \(u_{or} \in {0,1}\): Indicates whether offering \(o\) uses classroom \(r\) at least once during the week.
 
+(The auxiliary variables \(u^{day}_{ord}\) and \(s_{ot}\) used by the hard constraints C16/C17 are defined inline in their respective sections above — they exist purely to enforce a hard rule and are not referenced anywhere in the objective function.)
+
 ---
 
 ### Auxiliary Constraints
+
+#### (C10b) Professor Occupancy Definition
+
+Defines what \(z_{pt}\) actually means: it must equal 1 exactly when professor \(p\) is scheduled to teach *any* offering during time slot \(t\). Without this equality, nothing ties \(z\) (and everything built on top of it: \(w\), \(f\), \(l\)) to the actual \(x\) assignment, so the solver would be free to set \(z\) however is most convenient for the objective, disconnected from what's really scheduled.
+
+\[
+z_{pt} = \sum_{o\in O}\sum_{r\in R}x_{port},
+\qquad \forall p\in P, t\in T
+\]
+
+---
 
 #### (C11) Day Activity Linking
 This constraint links the professor's hourly activity variable \(z_{pt}\) to the binary daily activity variable \(w_{pd}\). If the professor is scheduled to teach in any time slot $t$ belonging to day $d$, the model is forced to mark that the professor was active on that day by setting \(w_{pd} = 1\). 
 
 \[
 z_{pt} \le w_{pd}, \qquad \forall p\in P, d\in D, t\in T_d
+\]
+
+---
+
+#### (C11b) Day Activity Upper Bound
+The other half of "\(w_{pd}=1\) iff professor \(p\) teaches at least once on day \(d\)": (C11) only forces \(w\) *up* when some \(z\) is 1. Without this row, \(w\) has no cost tying it down, and nothing stops the solver from leaving it at 1 on a day the professor never actually teaches — which would let (C12)'s \(f/l\) float freely on idle days instead of collapsing to a neutral value.
+
+\[
+w_{pd} \le \sum_{t\in T_d}z_{pt}, \qquad \forall p\in P, d\in D
 \]
 
 ---
@@ -371,6 +481,17 @@ These constraints dynamically determine the position of the first $f_{pd}$ and l
 f_{pd} \le \text{pos}(t) + M(1-z_{pt}), \qquad
 l_{pd} \ge \text{pos}(t)\cdot z_{pt},
 \qquad \forall p\in P, d\in D, t\in T_d
+\]
+
+---
+
+#### (C12b) Idle Day Zeroing
+On a day the professor doesn't work at all (\(w_{pd}=0\)), (C12)'s per-slot rows never fire (every \(z_{pt}=0\) that day), leaving \(f/l\) completely unconstrained. Since \(f\) has a negative objective cost (S1 rewards it being large), without this it would float up to its own upper bound on every idle day, collecting a spurious \(\alpha\cdot M_d\) "bonus" that has nothing to do with any real schedule. Forcing \(f=l=0\) when \(w_{pd}=0\) makes an idle day contribute exactly 0, as it should.
+
+\[
+f_{pd} \le M\cdot w_{pd}, \qquad
+l_{pd} \le M\cdot w_{pd},
+\qquad \forall p\in P, d\in D
 \]
 
 ---
@@ -406,7 +527,7 @@ x_{port} \le u_{or}, \qquad \forall p\in P, o\in O, r\in R, t\in T
 
 ## Objective Function
 
-The objective function combines the four soft constraints into a single weighted minimization term. Each component penalizes an undesirable scheduling pattern; weights \(\alpha, \beta, \gamma, \delta \ge 0\) control the relative importance of each criterion and are calibrated experimentally.
+The objective function combines the soft constraints into a single weighted minimization term. Each component penalizes an undesirable scheduling pattern; weights \(\alpha, \beta, \gamma, \delta, \varepsilon \ge 0\) control the relative importance of each criterion and are calibrated experimentally. Current API-level defaults are \(\alpha=1,\ \beta=1,\ \gamma=1,\ \delta=1,\ \varepsilon=0\) (i.e. every criterion active by default except the time-of-day preference, which only engages once the admin configures a preferred window).
 
 ### (S1) Timetable Holes
 Calculates the total idle time (empty windows) that professors spend at the university. For each active day and professor, the actual number of lectures taught ($\sum z_{pt}$) is subtracted from the total span between their first and last lectures of the day ($l_{pd} - f_{pd} + 1$). The resulting value represents the number of empty slots ("holes") between their scheduled classes. 
@@ -427,7 +548,7 @@ Penalizes scheduling multiple lectures of the same offering on a single day. Min
 ---
 
 ### (S3) Same-Offering Block Preference
-Rewards keeping a subject offering's own repeated lectures on the same day grouped into a contiguous block. This term is only ever collectible where S2 hasn't already avoided a same-day repeat entirely — when it does happen, minimizing this term's negative contribution keeps the repeated sessions together instead of interleaved with other offerings, which is pedagogically preferable for both the professor and the students.
+Rewards keeping a subject offering's own repeated lectures on the same day grouped into a contiguous block. This term is only ever collectible where S2 hasn't already avoided a same-day repeat entirely — and since (C17) now makes contiguity mandatory whenever a same-day repeat does happen, this reward is effectively always collected in full; the weight \(\gamma\) is kept for backward compatibility but has no remaining trade-off to control.
 
 \[
 \text{Blocking} = \sum_{o\in O}\sum_{t\in T:,\text{next}(t)\text{ exists}} b_{ot}
@@ -436,11 +557,22 @@ Rewards keeping a subject offering's own repeated lectures on the same day group
 ---
 
 ### (S4) Classroom Stability
-Measures the number of additional classrooms a subject offering uses throughout the week beyond the first one. If the offering uses only one classroom ($r$), then $\sum_{r} u_{or} = 1$, which zeroes out the penalty. If it uses multiple rooms, the term increases linearly, penalizing the lack of physical stability for the students. 
+Measures the number of additional classrooms a subject offering uses throughout the week beyond the first one. If the offering uses only one classroom ($r$), then $\sum_{r} u_{or} = 1$, which zeroes out the penalty. If it uses multiple rooms, the term increases linearly, penalizing the lack of physical stability for the students. Since (C16) already makes same-day room switches impossible, this term's remaining job is purely to discourage — not prevent — using a different room on a different day.
 
 \[
 \text{ClassroomChanges} = \sum_{o\in O}\Big(\sum_{r\in R}u_{or} - 1\Big)
 \]
+
+---
+
+### (S5) Preferred Time-of-Day
+Penalizes each scheduled lecture that falls outside an admin-configured preferred time-of-day window \(T_{\text{pref}}\subseteq T\) (e.g. "mornings only"). No auxiliary variable is needed — the term applies directly to \(x_{port}\).
+
+\[
+\text{OffPreferredWindow} = \sum_{p\in P}\sum_{o\in O}\sum_{r\in R}\sum_{t\in T\setminus T_{\text{pref}}}x_{port}
+\]
+
+If no preferred window is configured (\(T_{\text{pref}}=\varnothing\)), this term is defined to be 0 and \(\varepsilon\) has no effect.
 
 ---
 
@@ -451,7 +583,8 @@ $$\begin{aligned}
 \min \quad & \alpha \cdot \text{Holes} \ + \\
            & \beta \cdot \text{Concentration} \ + \\
            & (-\gamma) \cdot \text{Blocking} \ + \\
-           & \delta \cdot \text{ClassroomChanges}
+           & \delta \cdot \text{ClassroomChanges} \ + \\
+           & \varepsilon \cdot \text{OffPreferredWindow}
 \end{aligned}$$
 
-$$\text{subject to constraints } (C1) \text{ to } (C15).$$
+$$\text{subject to constraints } (C1) \text{ to } (C17).$$

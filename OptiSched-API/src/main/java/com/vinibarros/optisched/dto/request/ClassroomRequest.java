@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 public record ClassroomRequest(
         @NotBlank @Size(min = 1, max = 20) String number,
         @NotNull @Positive Integer capacity,
-        @NotNull RoomType type
+        @NotNull RoomType type,
+        @Size(max = 255) String building
         )
 {}

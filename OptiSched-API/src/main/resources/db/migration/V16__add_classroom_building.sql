@@ -1,0 +1,1 @@
+ALTER TABLE classroom ADD COLUMN building VARCHAR(255);

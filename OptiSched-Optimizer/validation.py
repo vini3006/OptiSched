@@ -134,6 +134,63 @@ def validate_professor_time_capacity(
             f"The following professors are overloaded relative to their availability: {details}"
         )
 
+def validate_offering_shift_capacity(
+    subject_offerings: list,
+    professors: list,
+    valid_qualifications: set[tuple[int, int]],
+) -> None:
+    """Catches two structural infeasibility patterns caused by a course's
+    mandatory shift (SubjectOffering.allowed_time_slot_ids):
+    1. The shift window itself doesn't have enough slots for the offering's
+       weekly requirement, regardless of who teaches it.
+    2. The offering's only qualified professor doesn't have enough
+       availability WITHIN that window specifically — their overall
+       availability (ignoring the shift) could still look fine."""
+
+    availability_by_professor = {
+        p.id: set(p.available_time_slot_ids) for p in professors
+    }
+
+    qualified_professor_count: dict[int, int] = {}
+    for (_, offering_id) in valid_qualifications:
+        qualified_professor_count[offering_id] = qualified_professor_count.get(offering_id, 0) + 1
+
+    exclusive_professor_by_offering: dict[int, int] = {}
+    for (professor_id, offering_id) in valid_qualifications:
+        if qualified_professor_count[offering_id] == 1:
+            exclusive_professor_by_offering[offering_id] = professor_id
+
+    insufficient_window = []
+    insufficient_overlap = []
+
+    for offering in subject_offerings:
+        if offering.allowed_time_slot_ids is None:
+            continue
+
+        allowed = set(offering.allowed_time_slot_ids)
+
+        if len(allowed) < offering.required_time_slots:
+            insufficient_window.append(offering.id)
+            continue
+
+        exclusive_professor = exclusive_professor_by_offering.get(offering.id)
+        if exclusive_professor is not None:
+            overlap = allowed & availability_by_professor.get(exclusive_professor, set())
+            if len(overlap) < offering.required_time_slots:
+                insufficient_overlap.append(offering.id)
+
+    if insufficient_window:
+        raise SolverDataValidationError(
+            "The following SubjectOfferings need more weekly lectures than "
+            f"their course's mandatory shift has room for: {insufficient_window}"
+        )
+
+    if insufficient_overlap:
+        raise SolverDataValidationError(
+            "The following SubjectOfferings' only qualified professor isn't "
+            f"available enough within their course's mandatory shift: {insufficient_overlap}"
+        )
+
 def validate_locked_assignments_feasible(
     locked_assignments: list,
     valid_qualifications: set[tuple[int, int]],

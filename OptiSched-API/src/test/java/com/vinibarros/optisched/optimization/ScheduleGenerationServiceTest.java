@@ -38,6 +38,7 @@ class ScheduleGenerationServiceTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ScheduleEntryRepository scheduleEntryRepository;
     @Mock private InstitutionRepository institutionRepository;
+    @Mock private CourseRepository courseRepository;
     @Mock private OptimizationRequestMapper requestMapper;
     @Mock private OptimizerClient optimizerClient;
     @Mock private EmailSender emailSender;
@@ -49,7 +50,7 @@ class ScheduleGenerationServiceTest {
         service = new ScheduleGenerationService(
                 professorRepository, subjectOfferingRepository, classroomRepository, timeSlotRepository,
                 semesterRepository, scheduleRepository, new ScheduleMapper(), scheduleEntryRepository,
-                institutionRepository, requestMapper, optimizerClient, emailSender
+                institutionRepository, courseRepository, requestMapper, optimizerClient, emailSender
         );
     }
 
@@ -100,7 +101,7 @@ class ScheduleGenerationServiceTest {
     }
 
     private ScheduleGenerationRequest options() {
-        return new ScheduleGenerationRequest(5.0, 5.0, 0.0, 5.0, null, null);
+        return new ScheduleGenerationRequest(5.0, 5.0, 0.0, 5.0, null, null, null, null);
     }
 
     private void stubCommonLookups() {
@@ -112,7 +113,7 @@ class ScheduleGenerationServiceTest {
         when(timeSlotRepository.findAllByInstitutionId(INSTITUTION_ID)).thenReturn(List.of(timeSlot()));
         when(institutionRepository.findById(INSTITUTION_ID)).thenReturn(Optional.of(institution()));
 
-        when(requestMapper.buildRequest(any(), any(), any(), any(), any(), any(), any()))
+        when(requestMapper.buildRequest(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mock(OptimizationRequest.class));
 
         OptimizationResponse response = new OptimizationResponse(List.of(
@@ -132,14 +133,14 @@ class ScheduleGenerationServiceTest {
     @Test
     void noPreviousActiveSchedule_sendsAnEmptyLockedAssignmentsList() {
         stubCommonLookups();
-        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID))
+        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID, null))
                 .thenReturn(null);
 
         service.generateSchedule(SEMESTER_ID, INSTITUTION_ID, options());
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<LockedAssignmentInput>> lockedCaptor = ArgumentCaptor.forClass(List.class);
-        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), lockedCaptor.capture());
+        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), lockedCaptor.capture(), any());
 
         assertThat(lockedCaptor.getValue()).isEmpty();
         verify(scheduleEntryRepository, never()).findByScheduleIdAndLockedTrue(any());
@@ -160,7 +161,7 @@ class ScheduleGenerationServiceTest {
         lockedEntry.setTimeSlot(timeSlot());
         lockedEntry.setLocked(true);
 
-        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID))
+        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID, null))
                 .thenReturn(previousActive);
         when(scheduleEntryRepository.findByScheduleIdAndLockedTrue(99L)).thenReturn(List.of(lockedEntry));
         when(requestMapper.toLockedAssignmentInput(lockedEntry))
@@ -170,7 +171,7 @@ class ScheduleGenerationServiceTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<LockedAssignmentInput>> lockedCaptor = ArgumentCaptor.forClass(List.class);
-        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), lockedCaptor.capture());
+        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), lockedCaptor.capture(), any());
 
         assertThat(lockedCaptor.getValue()).containsExactly(new LockedAssignmentInput(500L, 10L, 20L, 30L));
         assertThat(previousActive.getStatus()).isEqualTo(ScheduleStatus.INACTIVE);

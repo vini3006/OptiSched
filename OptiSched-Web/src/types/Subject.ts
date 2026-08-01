@@ -6,6 +6,7 @@ export type Subject = {
   name: string;
   workload: number;
   requiredRoomType: RoomType | null;
+  supportsCoTeaching: boolean;
 };
 
 export type SubjectInput = {
@@ -13,4 +14,5 @@ export type SubjectInput = {
   name: string;
   workload: number;
   requiredRoomType: RoomType | null;
+  supportsCoTeaching: boolean;
 };

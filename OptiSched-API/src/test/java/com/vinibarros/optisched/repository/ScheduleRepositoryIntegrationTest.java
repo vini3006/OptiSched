@@ -41,7 +41,7 @@ class ScheduleRepositoryIntegrationTest extends AbstractIntegrationTest {
         Institution institution = new Institution();
         institution.setName("Test Institution");
         institution.setSlug("test-institution-" + unique);
-        institution.setCnpj(unique.substring(0, 14));
+        institution.setCnpj(String.format("%014d", System.nanoTime() % 100_000_000_000_000L));
         institution.setSubscriptionStatus(SubscriptionStatus.TRIAL);
         return institutionRepository.save(institution);
     }

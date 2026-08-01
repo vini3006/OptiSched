@@ -35,6 +35,10 @@ export default {
     saveError: "Não foi possível salvar o curso. Tente novamente.",
     deleteTitle: "Excluir curso?",
     deleteDescription: 'Essa ação não pode ser desfeita. O curso "{{name}}" será removido permanentemente.',
+    restrictShiftLabel: "Restringir a um turno",
+    restrictShiftDescription:
+      "Quando ativado, a geração de grade nunca vai colocar aulas desse curso fora do turno escolhido.",
+    shiftPlaceholder: "Selecione o turno",
   },
 
   subjects: {
@@ -61,6 +65,9 @@ export default {
     formWorkloadLabel: "Carga Horária (Tempos de aula)",
     formRequiredRoomTypeLabel: "Tipo de sala exigido",
     noRoomTypePreferenceOption: "Sem preferência",
+    supportsCoTeachingLabel: "Permitir co-docência",
+    supportsCoTeachingDescription:
+      "Quando ativado, aulas dessa disciplina podem ser dadas por mais de um professor ao longo do semestre (ex.: teoria com um professor, laboratório com outro).",
     saveError: "Não foi possível salvar a disciplina. Tente novamente.",
     deleteTitle: "Excluir disciplina?",
     deleteDescription: 'Essa ação não pode ser desfeita. A disciplina "{{name}}" será removida permanentemente.',

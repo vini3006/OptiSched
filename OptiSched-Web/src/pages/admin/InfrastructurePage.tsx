@@ -80,6 +80,7 @@ function useClassroomCsvColumns(): CsvColumnSpec[] {
     { name: "number", description: t("classroomCsvColumns.number") },
     { name: "capacity", description: t("classroomCsvColumns.capacity") },
     { name: "type", description: t("classroomCsvColumns.type") },
+    { name: "building", description: t("classroomCsvColumns.building") },
   ];
 }
 
@@ -288,7 +289,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
     formState: { errors },
   } = useForm<ClassroomFormValues>({
     resolver: zodResolver(classroomSchema),
-    defaultValues: { number: "", capacity: 1, type: "COMMON" },
+    defaultValues: { number: "", capacity: 1, type: "COMMON", building: null },
   });
   const classroomType = watch("type");
 
@@ -320,7 +321,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
   function openCreate() {
     setEditing(null);
     setFormError(null);
-    reset({ number: "", capacity: 1, type: "COMMON" });
+    reset({ number: "", capacity: 1, type: "COMMON", building: null });
     setDialogOpen(true);
   }
 
@@ -331,6 +332,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
       number: classroom.number,
       capacity: classroom.capacity,
       type: classroom.type,
+      building: classroom.building,
     });
     setDialogOpen(true);
   }
@@ -379,20 +381,21 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
               <TableHead>{t("columnNumber")}</TableHead>
               <TableHead>{t("columnCapacity")}</TableHead>
               <TableHead>{t("columnType")}</TableHead>
+              <TableHead>{t("formBuilding")}</TableHead>
               <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && classrooms?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   {t("noClassroomsRegistered")}
                 </TableCell>
               </TableRow>
@@ -402,6 +405,7 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
                 <TableCell className="font-medium">{classroom.number}</TableCell>
                 <TableCell>{t("capacitySeats", { count: classroom.capacity })}</TableCell>
                 <TableCell>{ROOM_TYPE_LABELS[classroom.type]}</TableCell>
+                <TableCell>{classroom.building ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
@@ -469,6 +473,16 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
                   </SelectContent>
                 </Select>
                 <FieldError errors={[errors.type]} />
+              </Field>
+              <Field data-invalid={!!errors.building}>
+                <FieldLabel htmlFor="classroom-building">{t("formBuilding")}</FieldLabel>
+                <Input
+                  id="classroom-building"
+                  {...register("building", {
+                    setValueAs: (value: string) => (value === "" ? null : value),
+                  })}
+                />
+                <FieldError errors={[errors.building]} />
               </Field>
               {formError && (
                 <p role="alert" className="text-sm font-medium text-destructive">

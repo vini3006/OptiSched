@@ -12,3 +12,5 @@ class DayOfWeek(StrEnum):
 class RoomType(StrEnum):
     COMMON = "COMMON"
     LABORATORY = "LABORATORY"
+    AUDITORIUM = "AUDITORIUM"
+    COMPUTER_LAB = "COMPUTER_LAB"

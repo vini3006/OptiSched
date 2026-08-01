@@ -53,11 +53,19 @@ def add_required_time_slots_constraint(model: Highs, data: SolverData, variables
 # C2 - Unique Professor Assignment
 # ==========================================================
 #
-# Each SubjectOffering must be assigned to exactly one professor
+# Each SubjectOffering must be assigned to exactly one professor for the
+# whole semester — UNLESS its Subject supports co-teaching (data.
+# co_teaching_offerings), in which case at least one qualified professor
+# must be assigned, but more than one is allowed (each covering a subset of
+# the offering's own lectures; C3 still ties every individual x_port to a
+# "yes, involved" y_po, so this doesn't loosen anything else).
 #
 # Mathematical formulation:
 #
-#     Σ y_po = 1
+#     Σ y_po = 1              (normal offerings)
+#     p
+#
+#     Σ y_po ≥ 1              (co-teaching offerings)
 #     p
 #
 # ∀ o ∈ O
@@ -66,15 +74,17 @@ def add_required_time_slots_constraint(model: Highs, data: SolverData, variables
 
 def add_unique_professor_assignment_constraint(model: Highs, data: SolverData, variables: Variables) -> None:
 
-    for offering in data.subject_offerings: 
+    for offering in data.subject_offerings:
 
         indices = variables.y_by_offering.get(offering, [])
 
         coefficients = [1.0] * len(indices)
 
+        upper_bound = model.getInfinity() if offering in data.co_teaching_offerings else 1.0
+
         model.addRow(
             1.0,
-            1.0,
+            upper_bound,
             len(indices),
             indices,
             coefficients
@@ -759,6 +769,160 @@ def add_classroom_consistency_constraint(model: Highs, variables: Variables, aux
         )
 
 # ==========================================================
+# C16 - Daily Classroom Stability
+# ==========================================================
+#
+# Once a SubjectOffering has been placed in a classroom on a given day,
+# it cannot switch classrooms again that same day. Unlike C15/S4 (which
+# only softly discourages using more than one classroom across the whole
+# week, via u_or and weight delta), this is a hard guarantee scoped to a
+# single day: at most one classroom per (offering, day), no exceptions.
+#
+# Two parts, mirroring the C15 (link) + C9 (exclusivity) pattern:
+#
+# (C16a) Daily classroom usage linking:
+#
+#      x_port ≤ u_daily_(o,r,d),  where d = day(t)
+#
+#   ∀ p ∈ P, o ∈ O, r ∈ R, t ∈ T
+#
+# (C16b) Daily classroom exclusivity:
+#
+#      Σ u_daily_(o,r,d) ≤ 1
+#        r
+#
+#   ∀ o ∈ O, d ∈ D
+#
+# Together, these make it impossible for two different classrooms to
+# both end up "used" by the same offering on the same day.
+#
+# ==========================================================
+
+def add_daily_classroom_link_constraint(model: Highs, data: SolverData, variables: Variables, auxiliary: AuxiliaryVariables) -> None:
+
+    for (professor, offering, classroom, time_slot), x_column in variables.x.items():
+
+        day = data.slot_day[time_slot]
+
+        u_daily_column = auxiliary.u_daily[(offering, classroom, day)]
+
+        #
+        # x ≤ u_daily
+        #
+        # x - u_daily ≤ 0
+        #
+
+        model.addRow(
+            -model.getInfinity(),
+            0.0,
+            2,
+            [x_column, u_daily_column],
+            [1.0, -1.0]
+        )
+
+def add_daily_classroom_exclusivity_constraint(model: Highs, auxiliary: AuxiliaryVariables) -> None:
+
+    columns_by_offering_day: dict[tuple[int, object], list[int]] = {}
+
+    for (offering, classroom, day), u_daily_column in auxiliary.u_daily.items():
+        columns_by_offering_day.setdefault((offering, day), []).append(u_daily_column)
+
+    for indices in columns_by_offering_day.values():
+
+        coefficients = [1.0] * len(indices)
+
+        model.addRow(
+            -model.getInfinity(),
+            1.0,
+            len(indices),
+            indices,
+            coefficients
+        )
+
+# ==========================================================
+# C17 - Same-Offering Daily Contiguity
+# ==========================================================
+#
+# If a SubjectOffering has more than one lecture on the same day, those
+# lectures must be scheduled back-to-back — no gap, and no other
+# offering's lecture interleaved in between. Unlike S3 (which only
+# softly rewards this via b_ot / weight gamma), this is a hard
+# guarantee: the block is forced, not just preferred.
+#
+# Uses the standard "run-start" linearization: s_ot = 1 marks a TimeSlot
+# where the offering's occupancy turns on relative to the previous slot
+# of the same day (or the offering's first slot on that day). Capping
+# the number of run-starts per (offering, day) at 1 makes it impossible
+# to have two separate blocks (i.e. a lecture, then a gap, then another
+# lecture) on the same day.
+#
+# Mathematical formulation:
+#
+#   s_ot ≥ Σx_ot                          (t is the day's first slot)
+#   s_ot ≥ Σx_ot − Σx_o,prev(t)           (otherwise)
+#
+#   Σ s_ot ≤ 1
+#   t∈T_d
+#
+# ∀ o ∈ O, d ∈ D
+#
+# ==========================================================
+
+def add_offering_daily_contiguity_constraint(model: Highs, data: SolverData, variables: Variables, auxiliary: AuxiliaryVariables) -> None:
+
+    for offering in data.subject_offerings:
+
+        for day, slots in data.time_slots_by_day.items():
+
+            day_run_start_columns = []
+
+            for position, time_slot in enumerate(slots):
+
+                s_column = auxiliary.s.get((offering, time_slot))
+
+                if s_column is None:
+                    continue
+
+                day_run_start_columns.append(s_column)
+
+                current_columns = variables.x_by_offering_timeslot.get((offering, time_slot), [])
+
+                if position == 0:
+
+                    # s_ot ≥ Σx_ot  -->  s_ot - Σx_ot ≥ 0
+                    indices = [s_column] + current_columns
+                    coefficients = [1.0] + [-1.0] * len(current_columns)
+
+                else:
+
+                    previous_columns = variables.x_by_offering_timeslot.get((offering, slots[position - 1]), [])
+
+                    # s_ot ≥ Σx_ot - Σx_o,prev(t)  -->  s_ot - Σx_ot + Σx_o,prev(t) ≥ 0
+                    indices = [s_column] + current_columns + previous_columns
+                    coefficients = [1.0] + [-1.0] * len(current_columns) + [1.0] * len(previous_columns)
+
+                model.addRow(
+                    0.0,
+                    model.getInfinity(),
+                    len(indices),
+                    indices,
+                    coefficients
+                )
+
+            if not day_run_start_columns:
+                continue
+
+            coefficients = [1.0] * len(day_run_start_columns)
+
+            model.addRow(
+                -model.getInfinity(),
+                1.0,
+                len(day_run_start_columns),
+                day_run_start_columns,
+                coefficients
+            )
+
+# ==========================================================
 # Adding all the constraints to the model
 # ==========================================================
 
@@ -800,7 +964,7 @@ def add_all_constraints(model: Highs, data: SolverData, variables: Variables, au
     add_professor_occupancy_definition_constraint(model, data, variables, auxiliary)
 
     # ==========================================================
-    # Soft Constraints / Linking (C11 a C15)
+    # Auxiliary Linking for Soft Constraints (C11 a C15)
     # ==========================================================
 
     # C11
@@ -821,5 +985,18 @@ def add_all_constraints(model: Highs, data: SolverData, variables: Variables, au
     # C14
     add_same_day_concentration_constraint(model, data, variables, auxiliary)
 
-    # C15 
+    # C15
     add_classroom_consistency_constraint(model, variables, auxiliary)
+
+    # ==========================================================
+    # Hard Constraints (C16, C17)
+    # ==========================================================
+
+    # C16a
+    add_daily_classroom_link_constraint(model, data, variables, auxiliary)
+
+    # C16b
+    add_daily_classroom_exclusivity_constraint(model, auxiliary)
+
+    # C17
+    add_offering_daily_contiguity_constraint(model, data, variables, auxiliary)

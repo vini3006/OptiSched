@@ -89,6 +89,31 @@ public class ScheduleEntryService {
         }
     }
 
+    /**
+     * Same check as {@link #assertNoCourseConflict}, but for the leg of a swap
+     * where `displacedOffering` (not the entry the admin actually dragged) is
+     * the one being relocated into `timeSlotId` — normally the dragged entry's
+     * OWN old slot. Worded separately because a plain "this time slot already
+     * has another class" is actively misleading here: from the admin's point
+     * of view the slot they dropped onto was empty, and the conflict is really
+     * happening one hop away, to an entry they never touched.
+     */
+    private void assertNoSwapCourseConflict(Long scheduleId, SubjectOffering displacedOffering, Long timeSlotId, Set<Long> excludedEntryIds) {
+        for (ScheduleEntry occupant : scheduleEntryRepository.findByScheduleIdAndTimeSlotId(scheduleId, timeSlotId)) {
+            if (excludedEntryIds.contains(occupant.getId())) continue;
+
+            SubjectOffering occupantOffering = occupant.getSubjectOffering();
+
+            if (isCourseConflict(displacedOffering, occupantOffering)) {
+                throw new InvalidScheduleEntryException(
+                        "Cannot move this entry: swapping would place \"" + displacedOffering.getSubject().getName()
+                                + "\" into this entry's current time slot, where it already has \""
+                                + occupantOffering.getSubject().getName() + "\" for the same course and semester."
+                );
+            }
+        }
+    }
+
     @Transactional
     public ScheduleEntryResponse createEntry(Schedule schedule, SubjectOffering subjectOffering, Professor professor, Classroom classroom, TimeSlot timeSlot){
         if (scheduleEntryRepository.existsByScheduleIdAndClassroomIdAndTimeSlotId(
@@ -371,10 +396,13 @@ public class ScheduleEntryService {
 
         // The swap itself resolves the collision with `other` — but a THIRD
         // entry, uninvolved in the swap, could still conflict on course +
-        // semester at either destination slot.
+        // semester at either destination slot. The second check uses the
+        // "swap" wording because that conflict lands on `other`'s course,
+        // not the dragged entry's — reporting it as "this slot is occupied"
+        // would describe the wrong slot to the admin.
         Set<Long> swapExcluded = Set.of(id, other.getId());
         assertNoCourseConflict(scheduleId, entry.getSubjectOffering(), otherOldTimeSlot.getId(), swapExcluded);
-        assertNoCourseConflict(scheduleId, other.getSubjectOffering(), entryOldTimeSlot.getId(), swapExcluded);
+        assertNoSwapCourseConflict(scheduleId, other.getSubjectOffering(), entryOldTimeSlot.getId(), swapExcluded);
 
         if (!availabilityRepository.existsByIdAndInstitutionId(
                 new AvailabilityId(entry.getProfessor().getId(), otherOldTimeSlot.getId()), institutionId)) {

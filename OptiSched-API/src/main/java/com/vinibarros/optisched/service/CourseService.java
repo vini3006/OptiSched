@@ -72,6 +72,7 @@ public class CourseService {
 
         course.setName(request.name());
         course.setTotalSemesters(request.totalSemesters());
+        course.setAllowedShift(request.allowedShift());
 
         Course updated = courseRepository.save(course);
         return courseMapper.toResponse(updated);

@@ -11,6 +11,13 @@ import jakarta.validation.constraints.NotNull;
  *
  * preferredShift/preferredShiftWeight are optional together: leave
  * preferredShift null to not prioritize any time-of-day range at all.
+ *
+ * courseId is optional: leave it null to generate the whole institution's
+ * schedule (all courses at once, original behavior). When set, only that
+ * course's offerings are (re)decided — every other course's own active
+ * schedule for the semester is left untouched and its entries are fed to
+ * the optimizer as fixed assignments, so the new generation never double
+ * books a professor/classroom already committed elsewhere.
  */
 public record ScheduleGenerationRequest(
         @NotNull @DecimalMin("0") @DecimalMax("10") Double compactSchedule,
@@ -18,6 +25,8 @@ public record ScheduleGenerationRequest(
         @NotNull @DecimalMin("0") @DecimalMax("10") Double subjectBlocking,
         @NotNull @DecimalMin("0") @DecimalMax("10") Double classroomStability,
         PreferredShift preferredShift,
-        @DecimalMin("0") @DecimalMax("10") Double preferredShiftWeight
+        @DecimalMin("0") @DecimalMax("10") Double preferredShiftWeight,
+        Long courseId,
+        @DecimalMin("5") @DecimalMax("300") Double solverTimeLimitSeconds
 ) {
 }

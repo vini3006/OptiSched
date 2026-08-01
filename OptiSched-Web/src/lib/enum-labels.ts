@@ -57,4 +57,6 @@ export const PREFERRED_SHIFT_LABELS: Record<PreferredShift, string> = {
 export const ROOM_TYPE_LABELS: Record<RoomType, string> = {
   COMMON: "Sala comum",
   LABORATORY: "Laboratório",
+  AUDITORIUM: "Auditório",
+  COMPUTER_LAB: "Laboratório de informática",
 };

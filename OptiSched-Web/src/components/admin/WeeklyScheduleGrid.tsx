@@ -4,7 +4,7 @@ import { Lock, Unlock } from "lucide-react";
 
 import { DAY_OF_WEEK_LABELS } from "@/lib/enum-labels";
 import { cn } from "@/lib/utils";
-import type { WeeklyGridDimensions, WeeklyGridRow } from "@/lib/weekly-grid";
+import { toneForSubject, type WeeklyGridDimensions, type WeeklyGridRow } from "@/lib/weekly-grid";
 import type { DayOfWeek } from "@/types/TimeSlot";
 import type { ScheduleEntry } from "@/types/ScheduleEntry";
 
@@ -171,13 +171,13 @@ export function WeeklyScheduleGrid({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th className="border-b border-border p-2 text-left font-medium text-muted-foreground">
+            <th className="border-b border-border p-2 text-left text-xs font-medium text-muted-foreground">
               {t("columnTime")}
             </th>
             {days.map((day) => (
               <th
                 key={day}
-                className="border-b border-border p-2 text-left font-medium text-muted-foreground"
+                className="border-b-2 border-b-accent p-2 text-left font-display font-semibold text-foreground"
               >
                 {DAY_OF_WEEK_LABELS[day]}
               </th>
@@ -187,7 +187,7 @@ export function WeeklyScheduleGrid({
         <tbody>
           {rows.map((row: WeeklyGridRow) => (
             <tr key={`${row.startTime}-${row.endTime}`}>
-              <td className="border-b border-border p-2 align-top font-medium whitespace-nowrap">
+              <td className="border-b border-border p-2 align-top text-xs whitespace-nowrap text-muted-foreground">
                 {row.startTime.slice(0, 5)} - {row.endTime.slice(0, 5)}
               </td>
               {days.map((day) => {
@@ -212,8 +212,9 @@ export function WeeklyScheduleGrid({
                           <div
                             key={entry.id}
                             className={cn(
-                              "relative rounded-lg bg-secondary p-2",
-                              onEntryClick && "cursor-pointer hover:bg-secondary/70",
+                              "relative rounded-xl p-2.5 transition-[filter]",
+                              toneForSubject(entry.subjectId),
+                              onEntryClick && "cursor-pointer hover:brightness-95",
                               draggable && "cursor-grab active:cursor-grabbing",
                               entry.locked && "ring-2 ring-inset ring-primary/60"
                             )}
@@ -254,7 +255,10 @@ export function WeeklyScheduleGrid({
 
       {draggedEntry && pointerPos && (
         <div
-          className="pointer-events-none fixed z-50 min-w-40 scale-105 rounded-lg bg-secondary p-2 opacity-90 shadow-lg"
+          className={cn(
+            "pointer-events-none fixed z-50 min-w-40 scale-105 rounded-xl p-2.5 opacity-90 shadow-lg",
+            toneForSubject(draggedEntry.subjectId)
+          )}
           style={{ left: pointerPos.x - drag!.offsetX, top: pointerPos.y - drag!.offsetY }}
         >
           {renderEntry(draggedEntry)}

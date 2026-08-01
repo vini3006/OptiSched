@@ -14,6 +14,7 @@ public class CourseMapper {
         Course course = new Course();
         course.setName(request.name());
         course.setTotalSemesters(request.totalSemesters());
+        course.setAllowedShift(request.allowedShift());
         course.setInstitution(institution);
         return course;
     }
@@ -22,7 +23,8 @@ public class CourseMapper {
         return new CourseResponse(
                 course.getId(),
                 course.getName(),
-                course.getTotalSemesters()
+                course.getTotalSemesters(),
+                course.getAllowedShift()
         );
     }
 }

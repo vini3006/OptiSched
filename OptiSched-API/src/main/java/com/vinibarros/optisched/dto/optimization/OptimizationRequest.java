@@ -13,6 +13,7 @@ public record OptimizationRequest(
         List<TimeSlotInput> timeSlots,
         ObjectiveWeightsInput objectiveWeights,
         List<Long> preferredTimeSlotIds,
-        List<LockedAssignmentInput> lockedAssignments
+        List<LockedAssignmentInput> lockedAssignments,
+        Double solverTimeLimitSeconds
 )
 {}

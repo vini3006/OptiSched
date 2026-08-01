@@ -151,7 +151,7 @@ class ScheduleServiceTest {
         ScheduleResponse response = scheduleService.alterStatus(1L, INSTITUTION_ID);
 
         assertThat(response.status()).isEqualTo(ScheduleStatus.INACTIVE);
-        verify(scheduleRepository, never()).findBySemesterIdAndStatusAndInstitutionId(any(), any(), any());
+        verify(scheduleRepository, never()).findBySemesterIdAndStatusAndInstitutionIdAndCourseId(any(), any(), any(), any());
     }
 
     @Test
@@ -160,7 +160,7 @@ class ScheduleServiceTest {
         Schedule currentlyActive = schedule(3L, 7L, ScheduleStatus.ACTIVE);
 
         when(scheduleRepository.findByIdAndInstitutionId(2L, INSTITUTION_ID)).thenReturn(Optional.of(toActivate));
-        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(7L, ScheduleStatus.ACTIVE, INSTITUTION_ID))
+        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(7L, ScheduleStatus.ACTIVE, INSTITUTION_ID, null))
                 .thenReturn(currentlyActive);
         when(scheduleRepository.save(any(Schedule.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -175,7 +175,7 @@ class ScheduleServiceTest {
         Schedule toActivate = schedule(2L, 7L, ScheduleStatus.INACTIVE);
 
         when(scheduleRepository.findByIdAndInstitutionId(2L, INSTITUTION_ID)).thenReturn(Optional.of(toActivate));
-        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionId(7L, ScheduleStatus.ACTIVE, INSTITUTION_ID))
+        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(7L, ScheduleStatus.ACTIVE, INSTITUTION_ID, null))
                 .thenReturn(null);
         when(scheduleRepository.save(any(Schedule.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

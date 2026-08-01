@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_SHORT_LABELS } from "@/lib/enum-labels";
+import { cn } from "@/lib/utils";
+import { toneForSubject } from "@/lib/weekly-grid";
 import type { DayOfWeek } from "@/types/TimeSlot";
 import type { ScheduleEntry } from "@/types/ScheduleEntry";
 
@@ -68,7 +70,10 @@ export function MobileDaySchedule({
             ) : (
               <ul className="flex flex-col gap-2">
                 {dayEntries.map((entry) => (
-                  <li key={entry.id} className="card-elevated rounded-2xl p-3">
+                  <li
+                    key={entry.id}
+                    className={cn("card-elevated rounded-2xl p-3", toneForSubject(entry.subjectId))}
+                  >
                     <p className="mb-1 text-xs font-medium text-muted-foreground">
                       {entry.startTime.slice(0, 5)} - {entry.endTime.slice(0, 5)}
                     </p>

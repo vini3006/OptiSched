@@ -1,5 +1,6 @@
 package com.vinibarros.optisched.entity;
 
+import com.vinibarros.optisched.enums.PreferredShift;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -26,6 +27,16 @@ public class Course extends Auditable {
 
     @Column(name = "total_semesters", nullable = false)
     private Integer totalSemesters;
+
+    /**
+     * When set, every SubjectOffering of this course is hard-restricted to
+     * TimeSlots within this shift during schedule generation — unlike the
+     * per-request preferredShift (soft, whole-generation), this is a
+     * per-course, always-enforced constraint. Null means no restriction.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "allowed_shift")
+    private PreferredShift allowedShift;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)

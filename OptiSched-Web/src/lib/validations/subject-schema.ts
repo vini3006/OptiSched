@@ -7,7 +7,8 @@ export const subjectSchema = z.object({
   code: z.string().min(1, t("subject.codeRequired")),
   name: z.string().min(1, t("subject.nameRequired")),
   workload: z.number().int().positive(t("subject.workloadInvalid")),
-  requiredRoomType: z.enum(["COMMON", "LABORATORY"]).nullable(),
+  requiredRoomType: z.enum(["COMMON", "LABORATORY", "AUDITORIUM", "COMPUTER_LAB"]).nullable(),
+  supportsCoTeaching: z.boolean(),
 });
 
 export type SubjectFormValues = z.infer<typeof subjectSchema>;

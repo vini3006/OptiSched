@@ -565,7 +565,8 @@ class ScheduleEntryServiceTest {
 
         assertThatThrownBy(() -> service.move(1L, 1001L, INSTITUTION_ID))
                 .isInstanceOf(InvalidScheduleEntryException.class)
-                .hasMessageContaining("same course and semester");
+                .hasMessageContaining("same course and semester")
+                .hasMessageContaining("swapping would place");
 
         org.mockito.Mockito.verify(scheduleEntryRepository, org.mockito.Mockito.never()).save(any());
     }

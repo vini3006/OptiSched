@@ -31,6 +31,9 @@ public class Classroom extends Auditable {
     @Column(nullable = false)
     private RoomType type;
 
+    @Column
+    private String building;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;

@@ -84,6 +84,7 @@ public class ClassroomService {
         classroom.setNumber(request.number());
         classroom.setCapacity(request.capacity());
         classroom.setType(request.type());
+        classroom.setBuilding(request.building());
 
         Classroom updated = classroomRepository.save(classroom);
         return classroomMapper.toResponse(updated);
@@ -119,8 +120,9 @@ public class ClassroomService {
                     String number = record.get("number");
                     Integer capacity = CsvUtils.parseInt(record.get("capacity"));
                     RoomType type = CsvUtils.parseEnum(RoomType.class, record.get("type"));
+                    String building = CsvUtils.getOptional(record, "building");
 
-                    ClassroomRequest request = new ClassroomRequest(number, capacity, type);
+                    ClassroomRequest request = new ClassroomRequest(number, capacity, type, building);
                     CsvUtils.validate(validator, request);
 
                     create(request, institutionId);
@@ -140,9 +142,11 @@ public class ClassroomService {
     public byte[] exportToCsv(Long institutionId) {
         List<Classroom> classrooms = classroomRepository.findAllByInstitutionId(institutionId);
 
-        List<String> header = List.of("number", "capacity", "type");
+        List<String> header = List.of("number", "capacity", "type", "building");
         List<List<String>> rows = classrooms.stream()
-                .map(c -> List.of(c.getNumber(), c.getCapacity().toString(), c.getType().name()))
+                .map(c -> java.util.Arrays.asList(
+                        c.getNumber(), c.getCapacity().toString(), c.getType().name(), c.getBuilding()
+                ))
                 .toList();
 
         try {

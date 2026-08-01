@@ -38,6 +38,16 @@ public class Subject extends Auditable {
     @Column(name = "required_room_type")
     private RoomType requiredRoomType;
 
+    /**
+     * When true, offerings of this subject are allowed to have more than one
+     * professor across the semester (e.g. theory taught by one professor,
+     * lab by another) — relaxes the optimizer's C2 (unique professor
+     * assignment) for this subject's offerings specifically. Defaults to
+     * false, preserving the single-professor-per-offering behavior.
+     */
+    @Column(name = "supports_co_teaching", nullable = false)
+    private boolean supportsCoTeaching = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;

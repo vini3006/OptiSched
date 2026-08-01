@@ -50,3 +50,22 @@ export function getFullWeekGridDimensions(timeSlots: TimeSlot[]): WeeklyGridDime
 
   return { days: WEEKDAY_ORDER, rows };
 }
+
+/**
+ * Tons pastel usados nos blocos de aula da grade, no estilo dos
+ * compromissos coloridos do mockup da landing page — cada disciplina
+ * sempre cai no mesmo tom (hash determinístico em subjectId), o que ajuda
+ * a escanear a grade visualmente sem precisar trocar as cores de texto já
+ * usadas em cada renderEntry (os tons são todos claros o bastante para o
+ * texto escuro padrão continuar legível).
+ */
+const ENTRY_TONE_CLASSES = [
+  "bg-primary/10 border-l-4 border-l-primary",
+  "bg-accent/15 border-l-4 border-l-accent",
+  "bg-olive-deep/10 border-l-4 border-l-olive-deep",
+  "bg-secondary border-l-4 border-l-border",
+] as const;
+
+export function toneForSubject(subjectId: number): string {
+  return ENTRY_TONE_CLASSES[subjectId % ENTRY_TONE_CLASSES.length];
+}

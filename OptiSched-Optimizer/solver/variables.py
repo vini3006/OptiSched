@@ -105,9 +105,14 @@ def create_variables(model: Highs, data: SolverData) -> Variables:
             if required_type is not None and data.classroom_type.get(r) != required_type:
                 continue
 
+            allowed_slots = data.allowed_time_slots.get(o)
+
             for t in data.time_slots:
 
                 if (p, t) not in data.valid_availabilities:
+                    continue
+
+                if allowed_slots is not None and t not in allowed_slots:
                     continue
 
                 variable = create_binary_variable(
@@ -216,6 +221,29 @@ class AuxiliaryVariables:
     #
     u: dict[tuple[int, int], int]
 
+    # ======================================================
+    # Daily Classroom Consistency
+    # ======================================================
+    #
+    # u_daily_(o,r,d) = 1 if SubjectOffering o uses classroom r
+    # at least once during day d. Only created for (o,r,d)
+    # combinations that actually occur among the x columns, so
+    # the model doesn't pay for rooms/days an offering could
+    # never use anyway.
+    #
+    u_daily: dict[tuple[int, int, DayOfWeek], int]
+
+    # ======================================================
+    # Same-Offering Daily Run Start
+    # ======================================================
+    #
+    # s_(o,t) = 1 if SubjectOffering o is scheduled at TimeSlot t
+    # but was NOT scheduled at the previous TimeSlot of the same
+    # day (or t is the day's first slot) — i.e. t starts a new
+    # block of the offering's own lectures that day.
+    #
+    s: dict[tuple[int, int], int]
+
 def create_integer_variable(model: Highs, name: str, lower_bound: float = 0.0, upper_bound: float | None = None,) -> int:
 
     if upper_bound is None:
@@ -245,6 +273,8 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
     b = {}
     v = {}
     u = {}
+    u_daily = {}
+    s = {}
 
     # ======================================================
     # Professor Variables
@@ -306,6 +336,17 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
     # SubjectOffering Variables
     # ======================================================
 
+    # Which (classroom, day) combinations an offering actually has at
+    # least one x variable for — u_daily only needs to exist there, same
+    # pruning rationale as b below.
+    offering_room_days: dict[int, set[tuple[int, DayOfWeek]]] = {}
+
+    for (professor, offering, classroom, time_slot) in variables.x.keys():
+
+        day = data.slot_day[time_slot]
+
+        offering_room_days.setdefault(offering, set()).add((classroom, day))
+
     for offering in data.subject_offerings:
 
         # --------------------------
@@ -319,6 +360,37 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
                 name=f"v_{offering}_{day}",
                 lower_bound=0,
             )
+
+        # --------------------------
+        # Daily classroom consistency
+        # --------------------------
+
+        for (classroom, day) in offering_room_days.get(offering, set()):
+
+            u_daily[(offering, classroom, day)] = create_binary_variable(
+                model=model,
+                name=f"u_daily_{offering}_{classroom}_{day}",
+            )
+
+        # --------------------------
+        # Same-offering daily run-start variables
+        # --------------------------
+        #
+        # s_(o,t) only needs to exist where the offering can actually be
+        # scheduled at t at all — if there's no x variable there, the sum
+        # is always 0 and s would be forced to 0 anyway.
+
+        for day, slots in data.time_slots_by_day.items():
+
+            for position, time_slot in enumerate(slots):
+
+                if not variables.x_by_offering_timeslot.get((offering, time_slot), []):
+                    continue
+
+                s[(offering, time_slot)] = create_binary_variable(
+                    model=model,
+                    name=f"s_{offering}_{time_slot}",
+                )
 
         # --------------------------
         # Classroom consistency
@@ -366,4 +438,6 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
         b=b,
         v=v,
         u=u,
+        u_daily=u_daily,
+        s=s,
     )

@@ -115,6 +115,18 @@ class SolverData:
     # (any classroom, subject to capacity, is fine).
     required_classroom_type: dict[int, str | None] = field(default_factory=dict)
 
+    # TimeSlot ids each offering is hard-restricted to (e.g. its course's
+    # mandatory shift). An offering absent from this dict has no
+    # restriction — enforced by never creating its x variable outside the
+    # set, rather than by a linear constraint.
+    allowed_time_slots: dict[int, set[int]] = field(default_factory=dict)
+
+    # Offerings whose Subject supports co-teaching — C2 (unique professor
+    # assignment) is relaxed from "exactly one professor" to "at least one"
+    # for these, letting different lectures of the same offering be covered
+    # by different professors. Absent means the normal single-professor rule.
+    co_teaching_offerings: set[int] = field(default_factory=set)
+
     # (professor, offering, classroom, time_slot) tuples carried over from a
     # previous generation that must stay exactly as-is — matches the x
     # variable's own (p, o, r, t) key shape so a locked entry can be looked
@@ -174,6 +186,17 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
     required_classroom_type = {
         o.id: o.required_room_type
         for o in request.subject_offerings
+    }
+
+    allowed_time_slots = {
+        o.id: set(o.allowed_time_slot_ids)
+        for o in request.subject_offerings
+        if o.allowed_time_slot_ids is not None
+    }
+
+    co_teaching_offerings = {
+        o.id for o in request.subject_offerings
+        if o.allows_multiple_professors
     }
 
     # ======================================================
@@ -346,6 +369,11 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         required_classroom_type = required_classroom_type,
         expected_students = expected_students,
     )
+    validate_offering_shift_capacity(
+        subject_offerings = request.subject_offerings,
+        professors = request.professors,
+        valid_qualifications = valid_qualifications,
+    )
 
     # ======================================================
     # Weights
@@ -385,6 +413,8 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         required_classroom_type=required_classroom_type,
         objective_weights=weights,
         preferred_time_slots=preferred_time_slots,
-        locked_assignments=locked_assignments
+        locked_assignments=locked_assignments,
+        allowed_time_slots=allowed_time_slots,
+        co_teaching_offerings=co_teaching_offerings
     )
 

@@ -29,7 +29,7 @@ class AuditingIntegrationTest extends AbstractIntegrationTest {
         Institution institution = new Institution();
         institution.setName("Audit Test Institution");
         institution.setSlug("audit-test-" + System.nanoTime());
-        institution.setCnpj(String.valueOf(System.nanoTime()).substring(0, 14));
+        institution.setCnpj(String.format("%014d", System.nanoTime() % 100_000_000_000_000L));
         institution.setSubscriptionStatus(SubscriptionStatus.TRIAL);
         return institution;
     }

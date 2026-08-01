@@ -15,6 +15,7 @@ public class ClassroomMapper {
         classroom.setNumber(request.number());
         classroom.setCapacity(request.capacity());
         classroom.setType(request.type());
+        classroom.setBuilding(request.building());
         classroom.setInstitution(institution);
 
         return classroom;
@@ -25,7 +26,8 @@ public class ClassroomMapper {
                 classroom.getId(),
                 classroom.getNumber(),
                 classroom.getCapacity(),
-                classroom.getType()
+                classroom.getType(),
+                classroom.getBuilding()
         );
     }
 }

@@ -15,13 +15,26 @@ from .extractor import extract_solution
 SOLVE_TIME_LIMIT_SECONDS = 45.0
 SOLVE_MIP_REL_GAP = 0.02
 
-def solve_scheduling_problem(data: SolverData, weights: ObjectiveWeights = ObjectiveWeights(), debug_mode: bool = True) -> OptimizationResponse | None:
+def solve_scheduling_problem(
+    data: SolverData,
+    weights: ObjectiveWeights = ObjectiveWeights(),
+    debug_mode: bool = True,
+    time_limit_seconds: float | None = None,
+    mip_rel_gap: float | None = None,
+    diagnostics: dict | None = None,
+) -> OptimizationResponse | None:
     """
     Main optimization engine coordinator.
 
     Initializes HiGHS, creates decision and auxiliary variables,
     applies all constraints, sets up the objective function,
     runs the solver, and extracts the final timetable.
+
+    time_limit_seconds/mip_rel_gap override the module defaults below for
+    this call only; omit to use them. `diagnostics`, if given a dict, is
+    populated with solve-outcome details (e.g. whether a None return was
+    caused by hitting the time limit vs. a proven infeasibility) — purely
+    additive, existing callers that don't pass it see no change in behavior.
     """
 
     # 1. Initialize the HiGHS solver
@@ -29,8 +42,8 @@ def solve_scheduling_problem(data: SolverData, weights: ObjectiveWeights = Objec
 
     # Optional: Solver configurations (e.g., disable verbose command line output)
     model.setOptionValue("output_flag", debug_mode)
-    model.setOptionValue("time_limit", SOLVE_TIME_LIMIT_SECONDS)
-    model.setOptionValue("mip_rel_gap", SOLVE_MIP_REL_GAP)
+    model.setOptionValue("time_limit", time_limit_seconds if time_limit_seconds is not None else SOLVE_TIME_LIMIT_SECONDS)
+    model.setOptionValue("mip_rel_gap", mip_rel_gap if mip_rel_gap is not None else SOLVE_MIP_REL_GAP)
 
     # 2. Create decision variables (with domain pruning already applied)
     variables = create_variables(model, data)
@@ -55,6 +68,10 @@ def solve_scheduling_problem(data: SolverData, weights: ObjectiveWeights = Objec
         model_status == HighsModelStatus.kTimeLimit
         and model.getInfo().primal_solution_status == highspy.kSolutionStatusFeasible
     )
+
+    if diagnostics is not None:
+        diagnostics["model_status"] = model_status.name
+        diagnostics["hit_time_limit"] = model_status == HighsModelStatus.kTimeLimit
 
     if not has_usable_solution:
         return None

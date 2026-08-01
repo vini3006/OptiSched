@@ -86,7 +86,7 @@ class OptimizerClientTest {
 
     private OptimizationRequest emptyRequest() {
         return new OptimizationRequest(
-                List.of(), List.of(), List.of(), List.of(), ObjectiveWeightsInput.defaults(), List.of(), List.of()
+                List.of(), List.of(), List.of(), List.of(), ObjectiveWeightsInput.defaults(), List.of(), List.of(), null
         );
     }
 }

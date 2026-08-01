@@ -17,11 +17,15 @@ export default {
       "Não é possível mover: o professor e a sala já estão ocupados por aulas diferentes nesse horário.",
     sameCourseSemester:
       "Esse horário já tem outra aula do mesmo curso e período — os alunos não poderiam estar nas duas ao mesmo tempo.",
+    sameCourseSemesterSwap:
+      'Não é possível mover: para liberar esse horário, "{{displaced}}" precisaria ir para o horário atual desta aula — mas lá já tem "{{blocking}}", do mesmo curso e período.',
     couldNotSwap: "Não foi possível trocar essas aulas — já existe um conflito nesse horário.",
     conflictsWithSchedule: "Essa ação conflita com algo que já está na grade. Atualize a página e tente novamente.",
   },
   deleteEntryError: "Não foi possível excluir a aula. Tente novamente.",
   moveEntryError: "Não foi possível mover a aula. Tente novamente.",
+  moveErrorTitle: "Não foi possível mover a aula",
+  moveErrorOkButton: "Ok",
   saveEntryChangesError: "Não foi possível salvar as alterações. Tente novamente.",
   toggleLockError: "Não foi possível travar/destravar essa aula. Tente novamente.",
   toggleStatusError: "Não foi possível alterar o status da grade. Tente novamente.",
@@ -50,6 +54,14 @@ export default {
     "Escolha o semestre. A geração roda o otimizador e pode levar até cerca de um minuto.",
   semesterLabel: "Semestre",
   selectSemesterPlaceholder: "Selecione um semestre",
+  generateCourseLabel: "Curso",
+  generateCourseDescription:
+    "Restrinja a geração a um único curso — as grades já ativas dos outros cursos são respeitadas e não são alteradas.",
+  generateCourseAllOption: "Grade completa (todos os cursos)",
+  solverTimeLimitLabel: "Limite de tempo do otimizador (opcional)",
+  solverTimeLimitDescription:
+    "Em segundos, entre 5 e 300. Deixe em branco para usar o padrão (45s) — grades maiores podem se beneficiar de mais tempo.",
+  solverTimeLimitPlaceholder: "45",
   compactScheduleLabel: "Compactar horário dos professores",
   compactScheduleDescription:
     "Evita buracos na agenda de um professor entre uma aula e outra no mesmo dia.",
@@ -103,7 +115,7 @@ export default {
   filterCourseLabel: "Curso",
   selectCoursePlaceholder: "Selecione um curso",
   selectCourseNotice: "Selecione um curso para ver os calendários por período.",
-  periodLabel: "Período {{period}}",
+  periodLabel: "{{period}}º período",
   noEntriesThisPeriod: "Nenhuma aula alocada nesse período.",
   entryClassroom: "Sala: {{classroom}}",
 

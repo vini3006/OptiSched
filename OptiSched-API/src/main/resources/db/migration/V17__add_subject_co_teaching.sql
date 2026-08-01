@@ -1,0 +1,1 @@
+ALTER TABLE subject ADD COLUMN supports_co_teaching BOOLEAN NOT NULL DEFAULT FALSE;
