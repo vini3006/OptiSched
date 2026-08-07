@@ -100,28 +100,42 @@
 
 ## Parte B — Runbook de deploy (manual, feito por você)
 
-- [ ] **Supabase**: criar projeto → pegar connection string (host/porta/user/senha/db) → preencher no `.env` de produção com `DB_SSL_MODE=require`. A própria API roda as migrations Flyway no boot.
-- [ ] **Resend**: criar conta → verificar domínio de envio (sem isso só dá pra mandar e-mail de teste pro próprio e-mail cadastrado) → gerar API key.
-- [ ] **Gerar par de chaves JWT novo pra produção** (nunca reaproveitar `app.key`/`app.pub` de dev): `openssl genrsa -out app.key 2048 && openssl rsa -in app.key -pubout -out app.pub`.
-- [ ] **Gerar senha forte pro Redis de produção** (`REDIS_PASSWORD` no `.env` de produção — ex.: `openssl rand -base64 32`).
-- [ ] **AWS EC2**: instância (t3.micro cabe no free tier), Security Group liberando só 22 (restrito ao seu IP), 80 e 443. Instalar Docker + Docker Compose. Apontar domínio/subdomínio (registro DNS tipo A) pro IP público. Copiar `docker-compose.prod.yml`, `Caddyfile`, `.env` de produção e as chaves JWT novas. Subir com `docker compose -f docker-compose.prod.yml up -d`.
-- [ ] **Vercel**: conectar repo/pasta `OptiSched-Web`, build command `npm run build`, output `dist`, env var `VITE_API_URL=https://api.seudominio.com`.
-- [ ] Confirmar `CORS_ALLOWED_ORIGINS`/`FRONTEND_URL` no `.env` de produção da API apontando pro domínio final da Vercel (sem barra final).
-- [ ] **Smoke test pós-deploy**: login, criar um recurso simples, gerar grade (exercita API → Optimizer com `X-Internal-Key`), reset de senha (confirma entrega real via Resend).
+**Concluída em 2026-08-07.** Todos os itens abaixo feitos e validados com smoke test real em produção (login+criar instituição, geração de grade via API→Optimizer, reset de senha via Resend com e-mail recebido de verdade). Detalhe completo/histórico na memory `deploy_partB_progress`.
+
+- [x] **Supabase**: projeto `optisched-prod` (Session Pooler, `sa-east-1`), `DB_SSL_MODE=require`.
+- [x] **Resend**: domínio `optisched.com.br` verificado, API key gerada.
+- [x] **Chaves JWT de produção**: `app.key`/`app.pub` (2048 bits), guardadas em `~/optisched-prod-secrets` local.
+- [x] **`REDIS_PASSWORD`** de produção gerado.
+- [x] **AWS EC2**: instância `optisched-api` (Ubuntu 24.04, t3.micro, `us-east-1`, IP elástico `56.125.44.121`), Docker + Compose instalados, stack de pé via `docker-compose.prod.yml`.
+- [x] **Vercel**: `https://opti-sched.vercel.app` (root `OptiSched-Web`, `VITE_API_URL=https://api.optisched.com.br`).
+- [x] `CORS_ALLOWED_ORIGINS`/`FRONTEND_URL` apontando pra `https://opti-sched.vercel.app`.
+- [x] **Smoke test pós-deploy**: login, criar instituição, gerar grade, reset de senha — todos passaram.
+- [x] **Bug pós-deploy encontrado e corrigido**: cookie JWT com `SameSite=Lax` hardcoded quebrava qualquer chamada autenticada via `fetch`/XHR entre domínios diferentes (Vercel × EC2 são cross-site). Fix: `SameSite` passa a ser `None` quando `app.cookie.secure=true` (commit `ae2bdb1`, em produção).
 
 ---
 
-## Parte C — CI/CD automatizado (só depois que a Parte B estiver rodando de verdade)
+## Débito técnico descoberto na Parte B — pronto pra executar quando o usuário quiser
 
-Não implementar antes de validar o deploy manual da Parte B em produção — automatizar um processo ainda não comprovado só espalha o problema mais rápido se algo estiver errado.
+### D1. Resize do volume EBS da EC2 (8GB → 20GB)
 
-- **Frontend (Vercel): nada a fazer.** Conectar o repo à Vercel na Parte B já dá deploy automático a cada push — não tem CI/CD pra construir aqui.
-- **Banco (Supabase): nada a fazer além do que já existe.** As migrations Flyway já rodam automaticamente no boot da API a cada deploy.
-- **API + Optimizer (EC2) — o gap real:**
-  - [ ] `docker-compose.prod.yml` passa a referenciar `image: ghcr.io/<usuário>/optisched-api:latest` / `optisched-optimizer:latest` em vez de `build:` (build local continua só no `docker-compose.yml` de dev).
-  - [ ] Novo job `deploy` em `.github/workflows/ci.yml` (ou workflow separado `deploy.yml`), disparado em push na `main` depois que os jobs `api`/`optimizer`/`web` existentes passarem: builda as duas imagens e publica no GHCR (usa o `GITHUB_TOKEN` default, sem credencial extra).
-  - [ ] Step final: SSH na EC2 (chave privada como GitHub Secret — `EC2_SSH_KEY`, `EC2_HOST`) rodando `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`.
-  - [ ] Smoke test pós-deploy automatizado (`curl -f https://api.seudominio.com/actuator/health`) — se falhar, o job falha e avisa; rollback fica manual (reapontar pra tag da imagem anterior) nessa primeira versão.
+**Por quê**: o volume root da instância (`nvme0n1`, 8GB, partição `p1` de 7GB) enche mesmo depois de `docker builder prune -af` — qualquer rebuild da imagem `api` direto na EC2 (Maven multi-stage) estoura o disco. Hoje o workaround é buildar localmente e transferir (`docker save | ssh ... docker load`), documentado na memory `deploy_partB_progress`. Resize elimina o workaround de vez; custo adicional é centavos/mês, coberto pelo crédito do Free Plan da AWS.
+
+- [x] Console AWS → EC2 → **Volumes** → volume de `optisched-api` (`i-0515b0b25c99a5f19`) → **Actions → Modify Volume** → 20GiB → confirmado (feito com a instância desligada, sem problema — Elastic Volumes aceita modificação com a instância parada ou rodando).
+- [x] Partição e filesystem estendidos: o Ubuntu 24.04 já roda `growpart`/`resize2fs` automaticamente via cloud-init no boot — ao ligar a instância depois do resize, `nvme0n1p1` e o ext4 já apareceram em 19G sozinhos (`growpart` confirmou `NOCHANGE`, `resize2fs` confirmou "already ... blocks long, nothing to do"). `df -h /` final: **19G total, 13G livres** (35% em uso).
+- [x] Workaround revertido: `git restore docker-compose.prod.yml` na EC2 (só tinha essa edição local não commitada, branch já em dia com `origin/main`) restaurou o `build: context:` normal. Rebuild completo (`docker compose build api optimizer && up -d`) direto na EC2 sem estourar disco: os 4 serviços (`api`, `optimizer`, `redis`, `caddy`) subiram healthy, build consumiu ~1.1GB e sobrou **11GB livres** (`df -h /`: 19G total, 7.4G usado, 40%). Confirmado publicamente: `curl -I https://api.optisched.com.br/actuator/health` → `200`.
+
+### D2. Parte C — CI/CD automatizado (agora liberada: Parte B já validada em produção)
+
+Elimina a causa raiz do D1 (EC2 nunca mais builda, só puxa imagem pronta do registry) e fecha o pipeline de deploy.
+
+- **Frontend (Vercel): nada a fazer**, já é automático a cada push desde a Parte B.
+- **Banco (Supabase): nada a fazer**, Flyway já roda no boot da API a cada deploy.
+- **API + Optimizer (EC2) — a implementar:**
+  - [ ] `docker-compose.prod.yml`: trocar `build: context: ./OptiSched-API` / `./OptiSched-Optimizer` por `image: ghcr.io/vini3006/optisched-api:latest` / `ghcr.io/vini3006/optisched-optimizer:latest` (repo confirmado: `vini3006/OptiSched`).
+  - [ ] Novo job `deploy` em `.github/workflows/ci.yml` (ou `deploy.yml` separado), disparado em push na `main` só depois que os jobs `api`/`optimizer`/`web` existentes passarem: builda as duas imagens (`docker/build-push-action`) e publica no GHCR via `GITHUB_TOKEN` default (sem secret extra pra isso).
+  - [ ] Step final SSH na EC2 (`appleboy/ssh-action` ou equivalente) rodando `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`. Precisa de dois GitHub Secrets novos: `EC2_SSH_KEY` (conteúdo de `~/optisched-prod-secrets/optisched-ec2.pem`) e `EC2_HOST` (`56.125.44.121`).
+  - [ ] Smoke test pós-deploy automatizado: `curl -f https://api.optisched.com.br/actuator/health` — se falhar, o job falha e avisa; rollback é manual (reapontar `docker-compose.prod.yml` pra uma tag anterior da imagem) nessa v1.
+  - [ ] Depois de confirmar o pipeline funcionando numa primeira rodada, D1 (resize do EBS) deixa de ser urgente — mas ainda vale fazer, porque a EC2 continua com pouco espaço pra outras coisas (logs, imagens antigas do GHCR puxadas).
 
 ---
 
