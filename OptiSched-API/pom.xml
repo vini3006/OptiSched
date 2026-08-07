@@ -182,6 +182,37 @@
 					</execution>
 				</executions>
 			</plugin>
+			<!--
+				Item A7: dependency vulnerability scanner. Deliberately NOT
+				bound to any lifecycle phase — mvn test/package (used both
+				locally and in ci.yml's own "Run tests" step) are
+				unaffected. CI invokes it explicitly:
+				mvn org.owasp:dependency-check-maven:check
+
+				failBuildOnCVSS=9 is the permissive gate the plan calls
+				for: only Critical-severity (CVSS >= 9.0) findings fail
+				the build, so a moderate/high false positive doesn't
+				block every PR on day one.
+
+				IMPORTANT (needs a one-time manual step from you): NIST's
+				NVD API rate-limits unauthenticated requests hard enough
+				that the first data sync can be very slow or fail
+				outright without an API key. Get a free key at
+				https://nvd.nist.gov/developers/request-an-api-key and add
+				it as a GitHub Actions repo secret named NVD_API_KEY
+				(ci.yml already wires it through if present) — otherwise
+				this step may need several retries to succeed the first
+				time.
+			-->
+			<plugin>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>13.0.0</version>
+				<configuration>
+					<failBuildOnCVSS>9</failBuildOnCVSS>
+					<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
