@@ -150,6 +150,29 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      # The EC2 security group only allows SSH from a fixed IP (the
+      # developer's own), not from GitHub-hosted runners (dynamic IPs) — so
+      # we open a scoped, temporary ingress rule for just this runner's IP,
+      # deploy, then always revoke it (even on failure) rather than leaving
+      # port 22 open to 0.0.0.0/0 permanently.
+      - name: Get runner public IP
+        id: ip
+        run: echo "cidr=$(curl -s https://checkip.amazonaws.com)/32" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Allow this runner's IP on the EC2 security group (SSH)
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id "${{ secrets.EC2_SECURITY_GROUP_ID }}" \
+            --protocol tcp --port 22 \
+            --cidr "${{ steps.ip.outputs.cidr }}"
+
       - name: Pull new images and restart stack on EC2
         uses: appleboy/ssh-action@v1
         with:
@@ -160,6 +183,16 @@ jobs:
             cd ~/OptiSched
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+
+      - name: Revoke this runner's IP from the EC2 security group
+        # Always run, even if the SSH step above failed — never leave the
+        # temporary rule behind.
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "${{ secrets.EC2_SECURITY_GROUP_ID }}" \
+            --protocol tcp --port 22 \
+            --cidr "${{ steps.ip.outputs.cidr }}"
 
       - name: Smoke test (public health endpoint)
         # Rollback in this v1 is manual: repoint docker-compose.prod.yml at a
