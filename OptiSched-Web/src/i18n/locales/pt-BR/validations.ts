@@ -66,6 +66,18 @@ export default {
     startTimeRequired: "Informe o horário de início.",
     endTimeRequired: "Informe o horário de término.",
   },
+  timeSlotGenerator: {
+    daysOfWeekRequired: "Selecione ao menos um dia da semana.",
+    dayStartRequired: "Informe o horário de início das aulas.",
+    dayEndRequired: "Informe o horário de término das aulas.",
+    dayEndAfterStart: "O horário de término deve ser depois do horário de início.",
+    classDurationRequired: "Informe a duração de cada aula.",
+    classDurationMin: "A duração da aula deve ser de pelo menos 5 minutos.",
+    breakStartRequired: "Informe o início do intervalo.",
+    breakEndRequired: "Informe o término do intervalo.",
+    breakEndAfterStart: "O término do intervalo deve ser depois do início.",
+    breakWithinDay: "Os intervalos devem estar dentro do horário de aulas.",
+  },
   user: {
     nameRequired: "Informe o nome.",
     emailRequired: "Informe o e-mail.",

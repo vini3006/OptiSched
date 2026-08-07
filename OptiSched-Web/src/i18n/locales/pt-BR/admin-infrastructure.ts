@@ -76,4 +76,38 @@ export default {
 
   hourPlaceholder: "Hora",
   minutePlaceholder: "Min",
+
+  generateTimeSlots: "Gerar automaticamente",
+  generateTimeSlotsDialogTitle: "Gerar horários automaticamente",
+  generateTimeSlotsDialogDescription:
+    "Informe o horário de início e término das aulas, a duração de cada aula e os intervalos sem aula. Os horários serão calculados para os dias selecionados.",
+  generatorFormDaysOfWeek: "Dias da semana",
+  generatorFormDayStart: "Início das aulas",
+  generatorFormDayEnd: "Término das aulas",
+  generatorFormClassDuration: "Duração de cada aula (minutos)",
+  generatorFormBreaks: "Intervalos sem aula",
+  generatorFormBreaksEmpty: "Nenhum intervalo adicionado.",
+  generatorFormAddBreak: "Adicionar intervalo",
+  generatorFormRemoveBreakAriaLabel: "Remover intervalo",
+  generatorNoSlotsGenerated:
+    "Nenhum horário foi gerado com essa configuração. Revise os horários e os intervalos informados.",
+  generatorPreviewTitle: "Prévia dos horários",
+  generatorPreviewCount_one: "{{count}} horário será criado.",
+  generatorPreviewCount_other: "{{count}} horários serão criados.",
+  generatorBack: "Voltar",
+  generatorConfirmCreate: "Confirmar e criar",
+  generatorCreating: "Criando...",
+  generatorResultTitle: "Horários gerados",
+  generatorResultDescription: "{{success}} de {{total}} horários criados com sucesso.",
+  generatorItemError: "{{day}} {{start}}–{{end}}: {{message}}",
+  generatorItemGenericError: "Não foi possível criar esse horário. Tente novamente.",
+  generatorClose: "Fechar",
+
+  deleteAllTimeSlots: "Excluir todos",
+  deleteAllTimeSlotsTitle: "Excluir todos os horários?",
+  deleteAllTimeSlotsDescription:
+    "Essa ação não pode ser desfeita. Os {{count}} horários cadastrados nessa instituição serão removidos permanentemente.",
+  deleteAllResultTitle: "Horários excluídos",
+  deleteAllResultDescription: "{{success}} de {{total}} horários excluídos com sucesso.",
+  deleteAllItemGenericError: "Não foi possível excluir esse horário. Tente novamente.",
 } as const;

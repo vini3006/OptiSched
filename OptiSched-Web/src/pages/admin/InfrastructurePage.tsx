@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { isAxiosError } from "axios";
+import { ArrowLeft, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -51,6 +52,8 @@ import {
   updateClassroom,
 } from "@/api/classrooms";
 import { CsvImportExport, type CsvColumnSpec } from "@/components/admin/CsvImportExport";
+import { TimeSlotGeneratorDialog } from "@/components/admin/TimeSlotGeneratorDialog";
+import { TimeSelect } from "@/components/admin/TimeSelect";
 import {
   createTimeSlot,
   deleteTimeSlot,
@@ -66,13 +69,11 @@ import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER, ROOM_TYPE_LABELS } from "@/lib/enum-labels";
 import type { Classroom, RoomType } from "@/types/Classroom";
 import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
+import type { ImportResult, ImportRowError } from "@/types/ImportResult";
 
 function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
-
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
 function useClassroomCsvColumns(): CsvColumnSpec[] {
   const { t } = useTranslation("adminInfrastructure");
@@ -91,52 +92,6 @@ function useTimeSlotCsvColumns(): CsvColumnSpec[] {
     { name: "startTime", description: t("timeSlotCsvColumns.startTime") },
     { name: "endTime", description: t("timeSlotCsvColumns.endTime") },
   ];
-}
-
-function TimeSelect({
-  id,
-  value,
-  onChange,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useTranslation("adminInfrastructure");
-  const [hour, minute] = value ? value.split(":") : ["", ""];
-
-  return (
-    <div className="flex items-center gap-2">
-      <Select value={hour} onValueChange={(newHour) => onChange(`${newHour}:${minute || "00"}`)}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue placeholder={t("hourPlaceholder")} />
-        </SelectTrigger>
-        <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-          {HOURS.map((h) => (
-            <SelectItem key={h} value={h}>
-              {h}h
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <span className="text-muted-foreground">:</span>
-      <Select
-        value={minute}
-        onValueChange={(newMinute) => onChange(`${hour || "00"}:${newMinute}`)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder={t("minutePlaceholder")} />
-        </SelectTrigger>
-        <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-          {MINUTES.map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}min
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
 }
 
 export function InfrastructurePage() {
@@ -605,10 +560,48 @@ function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
   });
 
   const [viewingDay, setViewingDay] = useState<DayOfWeek | null>(null);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
+  const [deleteAllResult, setDeleteAllResult] = useState<ImportResult | null>(null);
 
   const daysPresent = DAY_OF_WEEK_ORDER.filter((day) =>
     (timeSlots ?? []).some((t) => t.dayOfWeek === day),
   );
+
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const items = timeSlots ?? [];
+      const errors: ImportRowError[] = [];
+      let successCount = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        try {
+          await deleteTimeSlot(item.id, institutionId);
+          successCount++;
+        } catch (error) {
+          const message =
+            isAxiosError(error) && typeof error.response?.data?.message === "string"
+              ? error.response.data.message
+              : t("deleteAllItemGenericError");
+          errors.push({
+            row: i + 1,
+            message: t("generatorItemError", {
+              day: DAY_OF_WEEK_LABELS[item.dayOfWeek],
+              start: item.startTime.slice(0, 5),
+              end: item.endTime.slice(0, 5),
+              message,
+            }),
+          });
+        }
+      }
+      return { totalRows: items.length, successCount, errors };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey });
+      setDeleteAllConfirmOpen(false);
+      setDeleteAllResult(data);
+    },
+  });
 
   if (viewingDay !== null) {
     return (
@@ -633,7 +626,11 @@ function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-start justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => setGeneratorOpen(true)}>
+          <Sparkles className="size-4" />
+          {t("generateTimeSlots")}
+        </Button>
         <CsvImportExport
           onImport={(file) => importTimeSlotsCsv(file, institutionId)}
           onExport={() => exportTimeSlotsCsv(institutionId)}
@@ -642,7 +639,70 @@ function TimeSlotsGroupedByDay({ institutionId }: { institutionId: number }) {
           entityLabel="horários"
           columns={timeSlotCsvColumns}
         />
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={(timeSlots ?? []).length === 0}
+          onClick={() => setDeleteAllConfirmOpen(true)}
+        >
+          <Trash2 className="size-4" />
+          {t("deleteAllTimeSlots")}
+        </Button>
       </div>
+
+      <TimeSlotGeneratorDialog
+        institutionId={institutionId}
+        open={generatorOpen}
+        onOpenChange={setGeneratorOpen}
+        onGenerated={() => queryClient.invalidateQueries({ queryKey })}
+      />
+
+      <AlertDialog open={deleteAllConfirmOpen} onOpenChange={setDeleteAllConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteAllTimeSlotsTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteAllTimeSlotsDescription", { count: (timeSlots ?? []).length })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteAllMutation.mutate()}
+              disabled={deleteAllMutation.isPending}
+            >
+              {deleteAllMutation.isPending
+                ? t("common:actions.deleting")
+                : t("common:actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!deleteAllResult} onOpenChange={(open) => !open && setDeleteAllResult(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteAllResultTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("deleteAllResultDescription", {
+                success: deleteAllResult?.successCount,
+                total: deleteAllResult?.totalRows,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteAllResult && deleteAllResult.errors.length > 0 && (
+            <div className="max-h-72 overflow-y-auto rounded-lg bg-secondary p-2">
+              <ul className="flex flex-col gap-1 text-sm">
+                {deleteAllResult.errors.map((rowError) => (
+                  <li key={rowError.row} className="text-destructive">
+                    {rowError.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="card-elevated mt-4 rounded-2xl">
         <Table>

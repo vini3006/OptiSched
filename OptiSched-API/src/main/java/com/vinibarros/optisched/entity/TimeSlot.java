@@ -37,7 +37,7 @@ public class TimeSlot extends Auditable {
     @JoinColumn(name = "institution_id", nullable = false)
     private Institution institution;
 
-    @OneToMany(mappedBy = "timeSlot")
+    @OneToMany(mappedBy = "timeSlot", cascade = CascadeType.REMOVE)
     private Set<Availability> availabilities = new HashSet<>();
 
     @OneToMany(mappedBy = "timeSlot")

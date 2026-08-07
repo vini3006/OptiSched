@@ -96,8 +96,9 @@ public class TimeSlotService {
         }
         try{
             timeSlotRepository.deleteById(id);
+            timeSlotRepository.flush();
         } catch (DataIntegrityViolationException e){
-            throw new ResourceInUseException("TimeSlot cannot be deleted because it is referenced by existing Availability or ScheduleEntry records");
+            throw new ResourceInUseException("TimeSlot cannot be deleted because it is referenced by existing ScheduleEntry records");
         }
     }
 
