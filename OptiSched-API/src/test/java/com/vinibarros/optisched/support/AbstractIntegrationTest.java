@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -28,8 +29,16 @@ public abstract class AbstractIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:16"));
 
+    // RateLimitingFilter and JwtBlacklistFilter (item A6) sit in the request
+    // path of every @SpringBootTest MockMvc call here, including the
+    // password-reset flow's own tests — a real Redis is needed for those to
+    // run at all, not just for auth-specific tests.
+    static final GenericContainer<?> REDIS =
+            new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
+
     static {
         POSTGRES.start();
+        REDIS.start();
     }
 
     @DynamicPropertySource
@@ -37,6 +46,9 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 
         registry.add("spring.flyway.placeholders.superadmin.email", () -> "superadmin@test.local");
         registry.add("spring.flyway.placeholders.superadmin.password", () -> "$2a$10$test.hash.placeholder.value.only");

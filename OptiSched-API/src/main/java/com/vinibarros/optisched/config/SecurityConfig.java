@@ -49,10 +49,19 @@ public class SecurityConfig {
 
     private final InstitutionFilter institutionFilter;
     private final CookieBearerTokenResolver cookieBearerTokenResolver;
+    private final RateLimitingFilter rateLimitingFilter;
+    private final JwtBlacklistFilter jwtBlacklistFilter;
 
-    public SecurityConfig(InstitutionFilter institutionFilter, CookieBearerTokenResolver cookieBearerTokenResolver) {
+    public SecurityConfig(
+            InstitutionFilter institutionFilter,
+            CookieBearerTokenResolver cookieBearerTokenResolver,
+            RateLimitingFilter rateLimitingFilter,
+            JwtBlacklistFilter jwtBlacklistFilter
+    ) {
         this.institutionFilter = institutionFilter;
         this.cookieBearerTokenResolver = cookieBearerTokenResolver;
+        this.rateLimitingFilter = rateLimitingFilter;
+        this.jwtBlacklistFilter = jwtBlacklistFilter;
     }
 
     @Bean
@@ -72,7 +81,9 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                         .bearerTokenResolver(cookieBearerTokenResolver)
                 )
-                .addFilterAfter(institutionFilter, BearerTokenAuthenticationFilter.class);
+                .addFilterBefore(rateLimitingFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(institutionFilter, JwtBlacklistFilter.class);
         return http.build();
     }
 

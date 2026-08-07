@@ -39,6 +39,21 @@ services:
     networks:
         - optisched-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: optisched-redis
+    restart: always
+    # No password, no published port — dev-only, reachable only from api
+    # over the internal network. Production requires REDIS_PASSWORD (see
+    # docker-compose.prod.yml / docs/deploy-readiness-plan.md).
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - optisched-network
+
   api:
     build:
       context: ./OptiSched-API
@@ -57,6 +72,8 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY: file:/app.pub
       SPRING_FLYWAY_PLACEHOLDERS_SUPERADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
       SPRING_FLYWAY_PLACEHOLDERS_SUPERADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD_HASH}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "8080:8080"
     volumes:
@@ -72,6 +89,8 @@ services:
       postgres:
         condition: service_healthy
       optimizer:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - optisched-network
