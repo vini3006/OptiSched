@@ -24,6 +24,11 @@ services:
       context: ./OptiSched-Optimizer
     container_name: optisched-optimizer
     restart: always
+    environment:
+      # Fixed dev-only value — matches the api service below so local
+      # docker compose keeps working out of the box. Production uses a real
+      # secret from the .env of the EC2 host (see docs/deploy-readiness-plan.md).
+      OPTIMIZER_INTERNAL_KEY: dev-only-internal-key-change-in-prod
     ports:
       - "8000:8000"
     healthcheck:
@@ -46,6 +51,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       OPTIMIZER_URL: http://optimizer:8000
+      OPTIMIZER_INTERNAL_KEY: dev-only-internal-key-change-in-prod
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PRIVATE_KEY: file:/app.key
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY: file:/app.pub

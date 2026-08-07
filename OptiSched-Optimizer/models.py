@@ -1,5 +1,5 @@
 from datetime import time
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enums import DayOfWeek, RoomType
 
 # =========================
@@ -59,15 +59,21 @@ class LockedAssignment(BaseModel):
     time_slot_id: int
 
 class OptimizationRequest(BaseModel):
-    professors: list[Professor]
-    subject_offerings: list[SubjectOffering]
-    classrooms: list[Classroom]
-    time_slots: list[TimeSlot]
+    # Upper bounds sized well above any real institution (see solver.py's
+    # own "dozens of professors/offerings/rooms" comment) but low enough to
+    # reject a payload built to blow up the MILP's variable count before it
+    # ever reaches the solver's own time limit.
+    professors: list[Professor] = Field(max_length=2000)
+    subject_offerings: list[SubjectOffering] = Field(max_length=5000)
+    classrooms: list[Classroom] = Field(max_length=2000)
+    time_slots: list[TimeSlot] = Field(max_length=500)
     objective_weights: ObjectiveWeightsDTO = ObjectiveWeightsDTO()
-    preferred_time_slot_ids: list[int] = []
-    locked_assignments: list[LockedAssignment] = []
+    preferred_time_slot_ids: list[int] = Field(default=[], max_length=500)
+    locked_assignments: list[LockedAssignment] = Field(default=[], max_length=5000)
     # Overrides the solver's default time budget (solver/solver.py's
     # SOLVE_TIME_LIMIT_SECONDS) for this request only. None uses the default.
+    # Also capped server-side (api/optimization.py's MAX_SOLVER_TIME_LIMIT_SECONDS)
+    # since a client-supplied value alone can't be trusted as an upper bound.
     solver_time_limit_seconds: float | None = None
 
 # =========================
