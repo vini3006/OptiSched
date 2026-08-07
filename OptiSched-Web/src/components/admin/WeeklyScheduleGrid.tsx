@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Lock, Unlock } from "lucide-react";
 
@@ -49,9 +49,13 @@ export function WeeklyScheduleGrid({
   const [hoverCell, setHoverCell] = useState<HoverCell | null>(null);
 
   const dragRef = useRef(drag);
-  dragRef.current = drag;
+  useLayoutEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
   const entriesRef = useRef(entries);
-  entriesRef.current = entries;
+  useLayoutEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   useEffect(() => {
     if (!drag) return;

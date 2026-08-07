@@ -268,7 +268,6 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const [entryActionError, setEntryActionError] = useState<string | null>(null);
 
   const {
-    register: registerEntry,
     handleSubmit: handleSubmitEntry,
     watch: watchEntry,
     setValue: setEntryValue,
