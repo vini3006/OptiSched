@@ -2,7 +2,7 @@ import highspy
 from highspy import Highs, HighsModelStatus
 from models import OptimizationResponse
 
-from mapper import SolverData, ObjectiveWeights
+from mapper import SolverData
 from .variables import create_variables, create_auxiliary_variables
 from .constraints import add_all_constraints
 from .objective import build_objective
@@ -17,7 +17,6 @@ SOLVE_MIP_REL_GAP = 0.02
 
 def solve_scheduling_problem(
     data: SolverData,
-    weights: ObjectiveWeights = ObjectiveWeights(),
     debug_mode: bool = True,
     time_limit_seconds: float | None = None,
     mip_rel_gap: float | None = None,
@@ -29,6 +28,9 @@ def solve_scheduling_problem(
     Initializes HiGHS, creates decision and auxiliary variables,
     applies all constraints, sets up the objective function,
     runs the solver, and extracts the final timetable.
+
+    The objective weights used are always data.objective_weights — there is
+    no separate weights override here.
 
     time_limit_seconds/mip_rel_gap override the module defaults below for
     this call only; omit to use them. `diagnostics`, if given a dict, is

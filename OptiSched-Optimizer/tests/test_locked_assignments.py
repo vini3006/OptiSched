@@ -6,7 +6,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from solver import solve_scheduling_problem
 from mapper import SolverData, ObjectiveWeights
 from models import LockedAssignment
-from validation import validate_locked_assignments_feasible, SolverDataValidationError
+from validation import (
+    validate_locked_assignments_feasible,
+    validate_locked_assignments_mutually_consistent,
+    SolverDataValidationError,
+)
 
 import pytest
 
@@ -148,3 +152,72 @@ def test_rejects_when_classroom_type_no_longer_matches():
             required_classroom_type={10: "LABORATORY"},
             expected_students=_EXPECTED_STUDENTS,
         )
+
+
+def test_valid_locked_assignment_passes_when_within_allowed_shift():
+    _validate_with_shift([_locked()], allowed_time_slots={10: {1001, 1002}})
+
+
+def test_rejects_when_time_slot_no_longer_within_offering_shift():
+    # The offering's course shift changed since the lock was created (e.g.
+    # morning -> afternoon), so the locked time slot no longer falls inside
+    # the offering's allowed window — the x variable would never be created
+    # (see solver/variables.py domain pruning), silently dropping the lock.
+    with pytest.raises(SolverDataValidationError, match="no longer within the offering's allowed shift"):
+        _validate_with_shift([_locked()], allowed_time_slots={10: {2001, 2002}})
+
+
+def _validate_with_shift(locked_assignments, allowed_time_slots):
+    validate_locked_assignments_feasible(
+        locked_assignments=locked_assignments,
+        valid_qualifications=_VALID_QUALIFICATIONS,
+        valid_availabilities=_VALID_AVAILABILITIES,
+        classroom_capacity=_CLASSROOM_CAPACITY,
+        classroom_type=_CLASSROOM_TYPE,
+        required_classroom_type=_REQUIRED_CLASSROOM_TYPE,
+        expected_students=_EXPECTED_STUDENTS,
+        allowed_time_slots=allowed_time_slots,
+    )
+
+
+# ------------------------------------------------------------------
+# validate_locked_assignments_mutually_consistent
+# ------------------------------------------------------------------
+
+
+def test_non_conflicting_locks_pass():
+    validate_locked_assignments_mutually_consistent([
+        _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+        _locked(professor_id=2, offering_id=20, classroom_id=200, time_slot_id=1001),
+    ])
+
+
+def test_identical_duplicate_lock_is_not_a_conflict():
+    validate_locked_assignments_mutually_consistent([
+        _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+        _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+    ])
+
+
+def test_rejects_same_professor_locked_twice_at_same_time_slot():
+    with pytest.raises(SolverDataValidationError, match="professor 1 is locked into 2 different classes"):
+        validate_locked_assignments_mutually_consistent([
+            _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+            _locked(professor_id=1, offering_id=20, classroom_id=200, time_slot_id=1001),
+        ])
+
+
+def test_rejects_same_classroom_locked_twice_at_same_time_slot():
+    with pytest.raises(SolverDataValidationError, match="classroom 100 is locked into 2 different classes"):
+        validate_locked_assignments_mutually_consistent([
+            _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+            _locked(professor_id=2, offering_id=20, classroom_id=100, time_slot_id=1001),
+        ])
+
+
+def test_rejects_same_offering_locked_twice_at_same_time_slot():
+    with pytest.raises(SolverDataValidationError, match="offering 10 is locked into 2 different"):
+        validate_locked_assignments_mutually_consistent([
+            _locked(professor_id=1, offering_id=10, classroom_id=100, time_slot_id=1001),
+            _locked(professor_id=2, offering_id=10, classroom_id=200, time_slot_id=1001),
+        ])

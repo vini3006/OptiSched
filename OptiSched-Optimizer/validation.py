@@ -199,14 +199,18 @@ def validate_locked_assignments_feasible(
     classroom_type: dict[int, str],
     required_classroom_type: dict[int, str | None],
     expected_students: dict[int, int],
+    allowed_time_slots: dict[int, set[int]] | None = None,
 ) -> None:
     """A locked assignment carries forward an exact (professor, offering,
     classroom, time slot) combination from a previous generation. Something
     about the surrounding data may have changed since then (the professor's
-    availability, the classroom's capacity, etc.), so each locked tuple must
-    still be validated against the CURRENT data before the solver runs —
-    otherwise it would silently fail to create the corresponding x variable,
-    and the "lock" would have no effect instead of raising a clear error."""
+    availability, the classroom's capacity, the offering's mandatory shift,
+    etc.), so each locked tuple must still be validated against the CURRENT
+    data before the solver runs — otherwise it would silently fail to create
+    the corresponding x variable, and the "lock" would have no effect
+    instead of raising a clear error."""
+
+    allowed_time_slots = allowed_time_slots or {}
 
     problems = []
 
@@ -243,9 +247,74 @@ def validate_locked_assignments_feasible(
                 f"offering {offering_id}: classroom {classroom_id} is no longer "
                 f"a {required_type} room"
             )
+            continue
+
+        allowed = allowed_time_slots.get(offering_id)
+        if allowed is not None and time_slot_id not in allowed:
+            problems.append(
+                f"offering {offering_id}: time slot {time_slot_id} is no longer "
+                "within the offering's allowed shift"
+            )
 
     if problems:
         raise SolverDataValidationError(
             "The following locked classes could not be kept as-is because the "
             f"underlying data changed since they were locked: {'; '.join(problems)}"
+        )
+
+def validate_locked_assignments_mutually_consistent(
+    locked_assignments: list,
+) -> None:
+    """Each locked assignment forces its x variable to exactly 1 (see
+    solver/variables.py), unconditionally. If two locks contradict one of
+    the solver's own exclusivity constraints — the same professor or
+    classroom locked into two different classes at the same time slot (C7 /
+    C9), or the same offering locked into two different professor/classroom
+    combinations at the same time slot (C10) — the model becomes hard
+    infeasible with no indication of why. This check catches that upfront,
+    independent of validate_locked_assignments_feasible (which validates
+    each lock against the current data individually, not against each
+    other)."""
+
+    by_professor_slot: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    by_classroom_slot: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    by_offering_slot: dict[tuple[int, int], set[tuple[int, int]]] = {}
+
+    for locked in locked_assignments:
+        professor_id = locked.professor_id
+        offering_id = locked.subject_offering_id
+        classroom_id = locked.classroom_id
+        time_slot_id = locked.time_slot_id
+
+        by_professor_slot.setdefault((professor_id, time_slot_id), set()).add((offering_id, classroom_id))
+        by_classroom_slot.setdefault((classroom_id, time_slot_id), set()).add((professor_id, offering_id))
+        by_offering_slot.setdefault((offering_id, time_slot_id), set()).add((professor_id, classroom_id))
+
+    problems = []
+
+    for (professor_id, time_slot_id), combos in by_professor_slot.items():
+        if len(combos) > 1:
+            problems.append(
+                f"professor {professor_id} is locked into {len(combos)} different "
+                f"classes at time slot {time_slot_id}"
+            )
+
+    for (classroom_id, time_slot_id), combos in by_classroom_slot.items():
+        if len(combos) > 1:
+            problems.append(
+                f"classroom {classroom_id} is locked into {len(combos)} different "
+                f"classes at time slot {time_slot_id}"
+            )
+
+    for (offering_id, time_slot_id), combos in by_offering_slot.items():
+        if len(combos) > 1:
+            problems.append(
+                f"offering {offering_id} is locked into {len(combos)} different "
+                f"professor/classroom combinations at time slot {time_slot_id}"
+            )
+
+    if problems:
+        raise SolverDataValidationError(
+            "The following locked assignments contradict each other and cannot "
+            f"all be kept simultaneously: {'; '.join(problems)}"
         )

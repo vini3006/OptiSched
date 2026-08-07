@@ -46,9 +46,11 @@ def build_objective(model: Highs, variables: Variables, auxiliary: AuxiliaryVari
     # penalizing) this keeps a subject's repeated sessions on the same day
     # grouped into a block instead of interleaved with other offerings —
     # which is what actually happens when S2 (same-day concentration)
-    # can't avoid a same-day repeat. gamma=0 (the default) makes this term
-    # a no-op, so "prefer blocking the same subject together" is opt-in
-    # via the admin's weight slider.
+    # can't avoid a same-day repeat. gamma=1.0 is the actual default (see
+    # models.ObjectiveWeightsDTO / mapper.ObjectiveWeights), so this term is
+    # active out of the box; C17 already makes the underlying block
+    # mandatory whenever it's feasible, so in practice this reward is just
+    # always fully collected rather than driving any real trade-off.
     # ======================================================
 
     for column in auxiliary.b.values():

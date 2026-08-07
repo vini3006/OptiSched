@@ -34,6 +34,7 @@ The following parameters are extracted from the OptiSched database and define th
 - \(h_o\): Number of weekly time slots required by subject offering \(o \in O\).
 - \(e_o\): Expected number of enrolled students.
 - \(s_o\): Recommended semester.
+- \(A_o \subseteq T\) (optional): Set of time slots offering \(o\) is hard-restricted to (e.g. its course's mandatory shift). Undefined for an offering means no restriction — see (C4b).
 
 ### Classroom Parameters
 
@@ -127,6 +128,16 @@ Each subject offering must be assigned to exactly one professor.
 \forall o\in O
 \]
 
+**Co-teaching exception:** for offerings whose Subject explicitly supports co-teaching (\(o \in O_{\text{co}}\subseteq O\)), the constraint is relaxed from equality to "at least one":
+
+\[
+\sum_{p\in P}y_{po}\ge1,
+\qquad
+\forall o\in O_{\text{co}}
+\]
+
+This lets different lectures of the same offering be covered by different qualified professors across the semester (e.g. theory taught by one, lab by another) — it does **not** let two professors co-present the *same* lecture simultaneously, since (C10) still caps every \((o,t)\) pair at a single professor/classroom combination. (C3) still ties every individual \(x_{port}\) to a professor with \(y_{po}=1\), so nothing else about the model is loosened. \(O_{\text{co}}\) is empty by default (normal single-professor rule); an offering only enters it when explicitly opted in.
+
 ---
 
 #### (C3) Professor Consistency
@@ -174,6 +185,20 @@ Then,
 \]
 
 Assumption: In the current MVP scope, every subject offering considered by the optimizer has a defined recommended_semester (mandatory/core courses only). Elective offerings without a recommended semester are out of scope and are not fed into the optimization engine at this stage. This assumption will be revisited when elective prioritization is introduced.
+
+---
+
+#### (C4b) Offering Shift Restriction
+
+When an offering is hard-restricted to a specific set of time slots \(A_o\) (e.g. its course's mandatory morning/afternoon/evening shift), it can only ever be scheduled within that window. Like (C5), (C6), and (C8), this is enforced implicitly during variable generation — a decision variable \(x_{port}\) is only created for \(t \in A_o\) — so no explicit linear constraint is required.
+
+\[
+t\in A_o,
+\qquad
+\forall p\in P,\;o\in O,\;r\in R,\;t\in T
+\]
+
+If \(A_o\) is undefined for an offering, it has no shift restriction and any time slot otherwise allowed (by professor availability, etc.) is fair game.
 
 ---
 
@@ -377,6 +402,22 @@ A schedule with a gap (e.g. offering \(o\) at slot 1 and slot 3 of a day, but no
 No additional hard constraints are required.
 
 Each scheduled lecture occupies exactly one time slot by definition of the decision variable \(x_{port}\).
+
+---
+
+### Locked Assignments (Partial Regeneration)
+
+When regenerating a schedule while keeping some existing classes fixed (e.g. re-optimizing a single course without disturbing the rest), the request may carry a set \(L \subseteq P\times O\times R\times T\) of \((p,o,r,t)\) tuples carried over from a previous generation that must stay exactly as scheduled.
+
+Each locked tuple is enforced by fixing its decision variable's bounds at creation time, rather than by an explicit linear row:
+
+\[
+x_{port}=1,
+\qquad
+\forall (p,o,r,t)\in L
+\]
+
+A locked tuple is only meaningful if its \(x_{port}\) variable actually exists — i.e. it must still satisfy every domain restriction that would otherwise prune it (qualification, availability, classroom capacity/type, and the shift restriction \(A_o\) from (C4b)). Locks are therefore validated against the current data before the solver runs, and are also cross-checked against each other for mutual consistency — e.g. two locks cannot pin the same professor, the same classroom, or the same offering to two different combinations at the same time slot, since that would directly contradict (C7), (C9), or (C10). Either kind of violation is rejected with a descriptive error, rather than silently producing a lock that has no effect or a model that is infeasible for an untraceable reason.
 
 ---
 
@@ -587,4 +628,4 @@ $$\begin{aligned}
            & \varepsilon \cdot \text{OffPreferredWindow}
 \end{aligned}$$
 
-$$\text{subject to constraints } (C1) \text{ to } (C17).$$
+$$\text{subject to constraints } (C1) \text{ to } (C17), \text{ including } (C4b), \text{ plus any locked assignments } L.$$

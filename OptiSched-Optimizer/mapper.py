@@ -360,6 +360,9 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         valid_qualifications = valid_qualifications,
         max_weekly_slots = max_weekly_slots,
     )
+    validate_locked_assignments_mutually_consistent(
+        locked_assignments = request.locked_assignments,
+    )
     validate_locked_assignments_feasible(
         locked_assignments = request.locked_assignments,
         valid_qualifications = valid_qualifications,
@@ -368,6 +371,7 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         classroom_type = classroom_type,
         required_classroom_type = required_classroom_type,
         expected_students = expected_students,
+        allowed_time_slots = allowed_time_slots,
     )
     validate_offering_shift_capacity(
         subject_offerings = request.subject_offerings,
