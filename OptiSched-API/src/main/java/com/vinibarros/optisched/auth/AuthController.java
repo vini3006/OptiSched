@@ -52,7 +52,7 @@ public class AuthController {
         cookie.setSecure(cookieSecure);
         cookie.setPath("/");
         cookie.setMaxAge((int) TokenService.EXPIRES_IN_SECONDS);
-        cookie.setAttribute("SameSite", "Lax");
+        cookie.setAttribute("SameSite", cookieSameSite());
         response.addCookie(cookie);
 
         AuthResponse body = new AuthResponse(result.userId(), result.email(), result.name(), result.role(), result.institutionId(), result.professorId());
@@ -68,10 +68,25 @@ public class AuthController {
         cookie.setSecure(cookieSecure);
         cookie.setPath("/");
         cookie.setMaxAge(0);
-        cookie.setAttribute("SameSite", "Lax");
+        cookie.setAttribute("SameSite", cookieSameSite());
         response.addCookie(cookie);
 
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Frontend (Vercel) and API (EC2) live on different registrable domains
+     * in production, making every fetch/XHR call cross-site — browsers only
+     * attach SameSite=Lax cookies to top-level navigations, not JS requests,
+     * so the JWT cookie set on /auth/login would never come back on
+     * subsequent calls. SameSite=None fixes that, but browsers only accept
+     * None on cookies that are also Secure, which is exactly when
+     * cookieSecure is true (production, HTTPS). Locally (dev, HTTP,
+     * cookieSecure=false) frontend and API share the same registrable
+     * domain (just different ports), so Lax already works there.
+     */
+    private String cookieSameSite() {
+        return cookieSecure ? "None" : "Lax";
     }
 
     /**
