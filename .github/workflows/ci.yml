@@ -109,3 +109,59 @@ jobs:
         # high/critical severity fails the build, so a moderate-severity
         # false positive doesn't block every PR. Tighten later if needed.
         run: npm audit --audit-level=high
+
+  build-and-push:
+    name: Build & push images (GHCR)
+    needs: [api, optimizer, web]
+    # Only publish from main after a real push — never from a PR (a fork PR
+    # wouldn't have package-write access anyway, and we don't want to publish
+    # :latest from unmerged code).
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./OptiSched-API
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/optisched-api:latest
+
+      - name: Build & push Optimizer image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./OptiSched-Optimizer
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/optisched-optimizer:latest
+
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull new images and restart stack on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/OptiSched
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+      - name: Smoke test (public health endpoint)
+        # Rollback in this v1 is manual: repoint docker-compose.prod.yml at a
+        # previous image tag on the EC2 host and re-run `up -d` there.
+        run: curl -f --retry 5 --retry-delay 5 https://api.optisched.com.br/actuator/health

@@ -3,8 +3,9 @@
 # Parte B). Only Caddy publishes ports to the host; api and optimizer are
 # reachable exclusively over the internal Docker network.
 #
-# Usage on the EC2 host:
-#   docker compose -f docker-compose.prod.yml up -d
+# Usage on the EC2 host (api/optimizer images come from GHCR — CI builds and
+# pushes them on every push to main, see .github/workflows/ci.yml):
+#   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
 #
 # Expects, alongside this file: a production .env (see .env.production.example),
 # app.key/app.pub (a JWT key pair generated fresh for production — never reuse
@@ -30,8 +31,7 @@ services:
       - optisched-network
 
   optimizer:
-    build:
-      context: ./OptiSched-Optimizer
+    image: ghcr.io/vini3006/optisched-optimizer:latest
     container_name: optisched-optimizer
     restart: always
     environment:
@@ -48,8 +48,7 @@ services:
       - optisched-network
 
   api:
-    build:
-      context: ./OptiSched-API
+    image: ghcr.io/vini3006/optisched-api:latest
     container_name: optisched-api
     restart: always
     environment:
