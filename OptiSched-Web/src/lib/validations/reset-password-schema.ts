@@ -5,7 +5,7 @@ const t = (key: string) => i18next.t(key, { ns: "validations" });
 
 export const resetPasswordSchema = z
   .object({
-    newPassword: z.string().min(6, t("resetPassword.newPasswordMinLength")),
+    newPassword: z.string().min(8, t("resetPassword.newPasswordMinLength")),
     confirmPassword: z.string().min(1, t("resetPassword.confirmPasswordRequired")),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

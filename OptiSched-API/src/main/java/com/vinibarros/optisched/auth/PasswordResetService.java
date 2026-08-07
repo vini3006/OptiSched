@@ -11,6 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -55,9 +58,12 @@ public class PasswordResetService {
             secureRandom.nextBytes(randomBytes);
             String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
 
+            // Only the hash is persisted — a leaked/dumped database can't be
+            // replayed as a valid reset link, since the raw token (the only
+            // thing accepted by resetPassword below) is never stored anywhere.
             PasswordResetToken resetToken = new PasswordResetToken();
             resetToken.setUser(user);
-            resetToken.setToken(token);
+            resetToken.setToken(hashToken(token));
             resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(TOKEN_TTL_MINUTES));
             passwordResetTokenRepository.save(resetToken);
 
@@ -68,7 +74,7 @@ public class PasswordResetService {
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(hashToken(token))
                 .orElseThrow(() -> new InvalidResetTokenException("This password reset link is invalid."));
 
         if (resetToken.getUsedAt() != null) {
@@ -85,5 +91,16 @@ public class PasswordResetService {
 
         resetToken.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(resetToken);
+    }
+
+    /** Package-private (not private) so PasswordResetServiceTest can compute the same hash independently. */
+    static String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available in this JVM.", e);
+        }
     }
 }

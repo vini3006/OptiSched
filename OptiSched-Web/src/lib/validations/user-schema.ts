@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
     .string()
     .min(1, t("user.emailRequired"))
     .email({ message: t("user.emailInvalid") }),
-  password: z.string().min(6, t("user.passwordMinLength")),
+  password: z.string().min(8, t("user.passwordMinLength")),
 });
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>;

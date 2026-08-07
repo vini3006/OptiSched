@@ -37,7 +37,7 @@ export default {
     nameRequired: "Informe o nome do professor.",
   },
   resetPassword: {
-    newPasswordMinLength: "A senha deve ter pelo menos 6 caracteres.",
+    newPasswordMinLength: "A senha deve ter pelo menos 8 caracteres.",
     confirmPasswordRequired: "Confirme sua nova senha.",
     passwordsDontMatch: "As senhas não coincidem.",
   },
@@ -82,6 +82,6 @@ export default {
     nameRequired: "Informe o nome.",
     emailRequired: "Informe o e-mail.",
     emailInvalid: "Informe um e-mail válido.",
-    passwordMinLength: "A senha deve ter pelo menos 6 caracteres.",
+    passwordMinLength: "A senha deve ter pelo menos 8 caracteres.",
   },
 } as const;

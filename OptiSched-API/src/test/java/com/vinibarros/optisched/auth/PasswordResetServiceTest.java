@@ -87,7 +87,15 @@ class PasswordResetServiceTest {
         assertThat(saved.getExpiresAt()).isAfter(LocalDateTime.now());
         assertThat(saved.getUsedAt()).isNull();
 
-        verify(emailSender).sendPasswordResetEmail(eq("professor@test.com"), anyString());
+        ArgumentCaptor<String> resetLinkCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailSender).sendPasswordResetEmail(eq("professor@test.com"), resetLinkCaptor.capture());
+
+        // The link handed to the user carries the raw token; only its hash
+        // ever touches the database — this is the whole point of A4's fix.
+        String rawTokenFromLink = resetLinkCaptor.getValue().substring(resetLinkCaptor.getValue().indexOf("token=") + 6);
+        assertThat(saved.getToken())
+                .isNotEqualTo(rawTokenFromLink)
+                .isEqualTo(PasswordResetService.hashToken(rawTokenFromLink));
     }
 
     @Test
@@ -105,8 +113,10 @@ class PasswordResetServiceTest {
     @Test
     void resetPassword_validToken_updatesPasswordAndMarksUsed() {
         User user = user(1L, "professor@test.com");
-        PasswordResetToken resetToken = token(user, "valid-token", LocalDateTime.now().plusMinutes(30), null);
-        when(passwordResetTokenRepository.findByToken("valid-token")).thenReturn(Optional.of(resetToken));
+        PasswordResetToken resetToken =
+                token(user, PasswordResetService.hashToken("valid-token"), LocalDateTime.now().plusMinutes(30), null);
+        when(passwordResetTokenRepository.findByToken(PasswordResetService.hashToken("valid-token")))
+                .thenReturn(Optional.of(resetToken));
         when(passwordEncoder.encode("newPassword123")).thenReturn("new-hash");
 
         passwordResetService.resetPassword("valid-token", "newPassword123");
@@ -119,7 +129,8 @@ class PasswordResetServiceTest {
 
     @Test
     void resetPassword_unknownToken_throwsInvalidResetToken() {
-        when(passwordResetTokenRepository.findByToken("bogus")).thenReturn(Optional.empty());
+        when(passwordResetTokenRepository.findByToken(PasswordResetService.hashToken("bogus")))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> passwordResetService.resetPassword("bogus", "newPassword123"))
                 .isInstanceOf(InvalidResetTokenException.class);
@@ -128,9 +139,12 @@ class PasswordResetServiceTest {
     @Test
     void resetPassword_alreadyUsedToken_throwsInvalidResetToken() {
         User user = user(1L, "professor@test.com");
-        PasswordResetToken resetToken =
-                token(user, "used-token", LocalDateTime.now().plusMinutes(30), LocalDateTime.now().minusMinutes(5));
-        when(passwordResetTokenRepository.findByToken("used-token")).thenReturn(Optional.of(resetToken));
+        PasswordResetToken resetToken = token(
+                user, PasswordResetService.hashToken("used-token"),
+                LocalDateTime.now().plusMinutes(30), LocalDateTime.now().minusMinutes(5)
+        );
+        when(passwordResetTokenRepository.findByToken(PasswordResetService.hashToken("used-token")))
+                .thenReturn(Optional.of(resetToken));
 
         assertThatThrownBy(() -> passwordResetService.resetPassword("used-token", "newPassword123"))
                 .isInstanceOf(InvalidResetTokenException.class);
@@ -141,9 +155,12 @@ class PasswordResetServiceTest {
     @Test
     void resetPassword_expiredToken_throwsInvalidResetToken() {
         User user = user(1L, "professor@test.com");
-        PasswordResetToken resetToken =
-                token(user, "expired-token", LocalDateTime.now().minusMinutes(1), null);
-        when(passwordResetTokenRepository.findByToken("expired-token")).thenReturn(Optional.of(resetToken));
+        PasswordResetToken resetToken = token(
+                user, PasswordResetService.hashToken("expired-token"),
+                LocalDateTime.now().minusMinutes(1), null
+        );
+        when(passwordResetTokenRepository.findByToken(PasswordResetService.hashToken("expired-token")))
+                .thenReturn(Optional.of(resetToken));
 
         assertThatThrownBy(() -> passwordResetService.resetPassword("expired-token", "newPassword123"))
                 .isInstanceOf(InvalidResetTokenException.class);
