@@ -1,0 +1,127 @@
+# Production stack for the single EC2 instance: api + optimizer + redis + caddy.
+# No postgres service — production uses Supabase (see docs/deploy-readiness-plan.md,
+# Parte B). Only Caddy publishes ports to the host; api and optimizer are
+# reachable exclusively over the internal Docker network.
+#
+# Usage on the EC2 host:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Expects, alongside this file: a production .env (see .env.production.example),
+# app.key/app.pub (a JWT key pair generated fresh for production — never reuse
+# the dev pair), and Caddy picks up API_DOMAIN from that same .env.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: optisched-redis
+    restart: always
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    # No ports: — only reachable from api, over optisched-network. Actual
+    # usage (JWT blacklist entries + rate-limit counters, all short-TTL) is
+    # trivial, so a small limit is plenty.
+    mem_limit: 64m
+    cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - optisched-network
+
+  optimizer:
+    build:
+      context: ./OptiSched-Optimizer
+    container_name: optisched-optimizer
+    restart: always
+    environment:
+      OPTIMIZER_INTERNAL_KEY: ${OPTIMIZER_INTERNAL_KEY}
+    # No ports: — only reachable from api, over optisched-network.
+    mem_limit: 350m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - optisched-network
+
+  api:
+    build:
+      context: ./OptiSched-API
+    container_name: optisched-api
+    restart: always
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL_MODE: require
+      OPTIMIZER_URL: http://optimizer:8000
+      OPTIMIZER_INTERNAL_KEY: ${OPTIMIZER_INTERNAL_KEY}
+      FRONTEND_URL: ${FRONTEND_URL}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      COOKIE_SECURE: "true"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PRIVATE_KEY: file:/app.key
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY: file:/app.pub
+      SPRING_FLYWAY_PLACEHOLDERS_SUPERADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SPRING_FLYWAY_PLACEHOLDERS_SUPERADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD_HASH}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      JPA_SHOW_SQL: "false"
+      SWAGGER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # No ports: — only reachable from caddy, over optisched-network.
+    volumes:
+      - ./app.key:/app.key
+      - ./app.pub:/app.pub
+    # Spring Boot's own footprint is the biggest of the four services here;
+    # sized for a t3.micro (1GiB total) alongside optimizer + redis + caddy +
+    # the OS. Revisit once real usage is observed.
+    mem_limit: 480m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      optimizer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - optisched-network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: optisched-caddy
+    restart: always
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - optisched-network
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  optisched-network:
+    driver: bridge

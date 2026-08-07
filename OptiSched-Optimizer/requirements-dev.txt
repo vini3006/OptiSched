@@ -1,0 +1,10 @@
+# Everything in requirements.txt, plus what's only needed to run the test
+# suite locally / in CI. The production Docker image installs
+# requirements.txt only — see Dockerfile.
+-r requirements.txt
+
+iniconfig==2.3.0
+packaging==26.2
+pluggy==1.6.0
+Pygments==2.20.0
+pytest==9.1.1

@@ -1,0 +1,14 @@
+# Reverse proxy + automatic TLS (Let's Encrypt) for the API, fronting the
+# api service on the internal Docker network — this is what gives the API
+# HTTPS in production (the Vercel-hosted frontend already gets HTTPS for
+# free). Caddy issues/renews the certificate automatically the moment
+# API_DOMAIN resolves to this host and ports 80/443 are reachable; redirect
+# HTTP -> HTTPS and HSTS are on by default once the site block uses a real
+# domain (not localhost/an IP).
+#
+# API_DOMAIN comes from the production .env (see .env.production.example),
+# passed through by docker-compose.prod.yml's caddy service.
+
+{$API_DOMAIN} {
+	reverse_proxy api:8080
+}
