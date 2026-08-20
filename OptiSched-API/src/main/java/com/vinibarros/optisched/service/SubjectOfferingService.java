@@ -6,12 +6,14 @@ import com.vinibarros.optisched.dto.response.ImportResultResponse;
 import com.vinibarros.optisched.dto.response.ImportRowError;
 import com.vinibarros.optisched.dto.response.SubjectOfferingResponse;
 import com.vinibarros.optisched.entity.*;
+import com.vinibarros.optisched.enums.InstitutionType;
 import com.vinibarros.optisched.enums.Term;
 import com.vinibarros.optisched.exception.DuplicateResourceException;
 import com.vinibarros.optisched.exception.ResourceInUseException;
 import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.SubjectOfferingMapper;
 import com.vinibarros.optisched.repository.*;
+import com.vinibarros.optisched.util.InstitutionTypeUtils;
 import jakarta.validation.Validator;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -24,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class SubjectOfferingService {
@@ -48,6 +51,10 @@ public class SubjectOfferingService {
 
     @Transactional
     public SubjectOfferingResponse create(SubjectOfferingRequest request, Long institutionId){
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "create a subject offering");
+
         if(subjectOfferingRepository.existsByCourseIdAndSubjectIdAndSemesterIdAndSectionAndInstitutionId(request.courseId(), request.subjectId(), request.semesterId(), request.section(), institutionId)){
             throw new DuplicateResourceException("SubjectOffering already exists with these attributes.");
         }
@@ -58,8 +65,6 @@ public class SubjectOfferingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Subject", request.subjectId()));
         Semester semester = semesterRepository.findByIdAndInstitutionId(request.semesterId(), institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Semester", request.semesterId()));
-        Institution institution = institutionRepository.findById(institutionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
 
         validateRecommendedSemester(request.recommendedSemester(), course);
 
@@ -85,6 +90,10 @@ public class SubjectOfferingService {
 
     @Transactional(readOnly = true)
     public List<SubjectOfferingResponse> findByCourse(Long courseId, Long institutionId){
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "list subject offerings by course");
+
         if(!courseRepository.existsByIdAndInstitutionId(courseId, institutionId)){
             throw new ResourceNotFoundException("Course", courseId);
         }
@@ -121,6 +130,10 @@ public class SubjectOfferingService {
         SubjectOffering subjectOffering = subjectOfferingRepository.findByIdAndInstitutionId(id, institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("SubjectOffering", id));
 
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "update a subject offering");
+
         Course course = courseRepository.findByIdAndInstitutionId(request.courseId(), institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", request.courseId()));
         Subject subject = subjectRepository.findByIdAndInstitutionId(request.subjectId(), institutionId)
@@ -130,11 +143,12 @@ public class SubjectOfferingService {
 
         validateRecommendedSemester(request.recommendedSemester(), course);
 
+        Long currentCourseId = subjectOffering.getCourse() != null ? subjectOffering.getCourse().getId() : null;
         boolean combinationChanged =
-                !subjectOffering.getCourse().getId().equals(request.courseId()) ||
+                !Objects.equals(currentCourseId, request.courseId()) ||
                         !subjectOffering.getSubject().getId().equals(request.subjectId()) ||
                         !subjectOffering.getSemester().getId().equals(request.semesterId()) ||
-                        !subjectOffering.getSection().equals(request.section());
+                        !Objects.equals(subjectOffering.getSection(), request.section());
 
         if(combinationChanged && subjectOfferingRepository.existsByCourseIdAndSubjectIdAndSemesterIdAndSectionAndInstitutionId
                 (request.courseId(), request.subjectId(), request.semesterId(), request.section(), institutionId)) {
@@ -152,7 +166,8 @@ public class SubjectOfferingService {
         return subjectOfferingMapper.toResponse(updated);
     }
 
-    private void validateRecommendedSemester(Integer recommendedSemester, Course course){
+    void validateRecommendedSemester(Integer recommendedSemester, Course course){
+        if (course == null || recommendedSemester == null) return;
         if(recommendedSemester > course.getTotalSemesters()){
             throw new IllegalArgumentException(
                     "recommendedSemester (" + recommendedSemester + ") cannot exceed course \""
@@ -182,6 +197,10 @@ public class SubjectOfferingService {
      * IDs aren't something an Admin filling out a spreadsheet would know.
      */
     public ImportResultResponse importFromCsv(MultipartFile file, Long institutionId) {
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "import subject offerings by course");
+
         int total = 0;
         int success = 0;
         List<ImportRowError> errors = new ArrayList<>();
@@ -225,6 +244,10 @@ public class SubjectOfferingService {
 
     @Transactional(readOnly = true)
     public byte[] exportToCsv(Long institutionId) {
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "export subject offerings by course");
+
         List<SubjectOffering> offerings = subjectOfferingRepository.findAllByInstitutionId(institutionId);
 
         List<String> header = List.of(
@@ -250,4 +273,3 @@ public class SubjectOfferingService {
         }
     }
 }
-

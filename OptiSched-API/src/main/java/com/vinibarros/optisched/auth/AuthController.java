@@ -55,7 +55,7 @@ public class AuthController {
         cookie.setAttribute("SameSite", cookieSameSite());
         response.addCookie(cookie);
 
-        AuthResponse body = new AuthResponse(result.userId(), result.email(), result.name(), result.role(), result.institutionId(), result.professorId());
+        AuthResponse body = new AuthResponse(result.userId(), result.email(), result.name(), result.role(), result.institutionId(), result.professorId(), result.institutionType());
         return ResponseEntity.ok(body);
     }
 
@@ -143,8 +143,9 @@ public class AuthController {
         String role = jwt.getClaim("role");
         String name = jwt.getClaim("name");
         String email = jwt.getSubject();
+        String institutionType = jwt.getClaim("institution_type");
 
-        AuthResponse response = new AuthResponse(userId, email, name, role, institutionId, professorId);
+        AuthResponse response = new AuthResponse(userId, email, name, role, institutionId, professorId, institutionType);
         return ResponseEntity.ok(response);
     }
 }

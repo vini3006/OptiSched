@@ -1,5 +1,6 @@
 package com.vinibarros.optisched.entity;
 
+import com.vinibarros.optisched.enums.InstitutionType;
 import com.vinibarros.optisched.enums.SubscriptionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -39,5 +40,9 @@ public class Institution extends Auditable {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 20)
+    private InstitutionType type = InstitutionType.UNIVERSITY;
 }
 

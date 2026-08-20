@@ -18,6 +18,7 @@ public class InstitutionMapper {
         institution.setCnpj(request.cnpj());
         institution.setSubscriptionStatus(request.subscriptionStatus());
         institution.setExpiresAt(request.expiresAt());
+        institution.setType(request.type());
 
         return institution;
     }
@@ -37,7 +38,8 @@ public class InstitutionMapper {
                 institution.getName(),
                 institution.getCnpj(),
                 institution.getSubscriptionStatus(),
-                institution.getExpiresAt()
+                institution.getExpiresAt(),
+                institution.getType()
         );
     }
 }

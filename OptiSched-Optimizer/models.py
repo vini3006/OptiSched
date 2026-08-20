@@ -16,11 +16,16 @@ class Professor(BaseModel):
 class SubjectOffering(BaseModel):
     id: int
     subject_id: int
-    course_id: int
+    # course_id/recommended_semester (UNIVERSITY mode) and turma_id (SCHOOL
+    # mode) are mutually exclusive — exactly one of course_id/turma_id is
+    # set per offering, enforced upstream by the Java API. Both may be None
+    # here only because pydantic requires a default for optional fields.
+    course_id: int | None = None
+    turma_id: int | None = None
 
     required_time_slots: int
     expected_students: int
-    recommended_semester: int
+    recommended_semester: int | None = None
     required_room_type: RoomType | None = None
     # TimeSlot ids this offering is hard-restricted to (e.g. its course's
     # mandatory shift). None means no restriction — any TimeSlot the

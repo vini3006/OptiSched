@@ -86,6 +86,18 @@ class ScheduleEntryServiceTest {
         return offering;
     }
 
+    private SubjectOffering turmaOffering(Long id, Subject subject, Integer expectedStudents, Long turmaId) {
+        Turma turma = new Turma();
+        turma.setId(turmaId);
+
+        SubjectOffering offering = new SubjectOffering();
+        offering.setId(id);
+        offering.setSubject(subject);
+        offering.setTurma(turma);
+        offering.setExpectedStudents(expectedStudents);
+        return offering;
+    }
+
     private Professor professor(Long id, String name) {
         Professor professor = new Professor();
         professor.setId(id);
@@ -646,5 +658,61 @@ class ScheduleEntryServiceTest {
                 .hasMessageContaining("already occupied");
 
         org.mockito.Mockito.verify(scheduleEntryRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // -------------------- turma conflict (C4 mirror, SCHOOL mode) on manual edits --------------------
+
+    @Test
+    void update_rejectsMoveIntoASlotAlreadyHoldingAnotherOfferingOfTheSameTurma() {
+        SubjectOffering movingOffering = turmaOffering(10L, subject(1L), 30, 900L);
+        SubjectOffering conflictingOffering = turmaOffering(11L, subject(2L), 30, 900L);
+
+        Professor professor = professor(1L, "Ana");
+        Classroom classroom = classroom(100L, "A-1", 40);
+        TimeSlot oldSlot = timeSlot(1000L, DayOfWeek.MONDAY, 8);
+        TimeSlot targetSlot = timeSlot(1001L, DayOfWeek.MONDAY, 9);
+        Schedule schedule = schedule(500L);
+
+        ScheduleEntry entry = entry(1L, schedule, movingOffering, professor, classroom, oldSlot);
+        ScheduleEntry occupant = entry(2L, schedule, conflictingOffering, professor(2L, "Bruno"), classroom(101L, "A-2", 40), targetSlot);
+
+        when(scheduleEntryRepository.findByIdAndInstitutionId(1L, INSTITUTION_ID)).thenReturn(Optional.of(entry));
+        when(professorRepository.findByIdAndInstitutionId(1L, INSTITUTION_ID)).thenReturn(Optional.of(professor));
+        when(classroomRepository.findByIdAndInstitutionId(100L, INSTITUTION_ID)).thenReturn(Optional.of(classroom));
+        when(timeSlotRepository.findByIdAndInstitutionId(1001L, INSTITUTION_ID)).thenReturn(Optional.of(targetSlot));
+        when(professorQualificationRepository.existsByIdAndInstitutionId(any(), eq(INSTITUTION_ID))).thenReturn(true);
+        when(availabilityRepository.existsByIdAndInstitutionId(any(), eq(INSTITUTION_ID))).thenReturn(true);
+        when(scheduleEntryRepository.findByScheduleIdAndTimeSlotId(500L, 1001L)).thenReturn(List.of(occupant));
+
+        ScheduleEntryRequest request = new ScheduleEntryRequest(1L, 100L, 1001L);
+
+        assertThatThrownBy(() -> service.update(1L, request, INSTITUTION_ID))
+                .isInstanceOf(InvalidScheduleEntryException.class);
+    }
+
+    @Test
+    void move_offeringsOfDifferentTurmas_noNpeAndDoesNotConflict() {
+        SubjectOffering movingOffering = turmaOffering(10L, subject(1L), 30, 900L);
+        SubjectOffering occupantOffering = turmaOffering(11L, subject(2L), 30, 901L);
+
+        Professor professor = professor(1L, "Ana");
+        Classroom classroom = classroom(100L, "A-1", 40);
+        TimeSlot oldSlot = timeSlot(1000L, DayOfWeek.MONDAY, 8);
+        TimeSlot targetSlot = timeSlot(1001L, DayOfWeek.MONDAY, 9);
+        Schedule schedule = schedule(500L);
+
+        ScheduleEntry entry = entry(1L, schedule, movingOffering, professor, classroom, oldSlot);
+        ScheduleEntry occupant = entry(2L, schedule, occupantOffering, professor(2L, "Bruno"), classroom(101L, "A-2", 40), targetSlot);
+
+        when(scheduleEntryRepository.findByIdAndInstitutionId(1L, INSTITUTION_ID)).thenReturn(Optional.of(entry));
+        when(timeSlotRepository.findByIdAndInstitutionId(1001L, INSTITUTION_ID)).thenReturn(Optional.of(targetSlot));
+        when(scheduleEntryRepository.findByScheduleIdAndTimeSlotId(500L, 1001L)).thenReturn(List.of(occupant));
+        when(availabilityRepository.existsByIdAndInstitutionId(any(), eq(INSTITUTION_ID))).thenReturn(true);
+        when(scheduleEntryRepository.save(any(ScheduleEntry.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ScheduleEntryResponse> result = service.move(1L, 1001L, INSTITUTION_ID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).timeSlotId()).isEqualTo(1001L);
     }
 }

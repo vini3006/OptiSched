@@ -11,6 +11,7 @@ public record SubjectOfferingInput(
         Long id,
         Long subjectId,
         Long courseId,
+        Long turmaId,
         Integer requiredTimeSlots,
         Integer expectedStudents,
         Integer recommendedSemester,

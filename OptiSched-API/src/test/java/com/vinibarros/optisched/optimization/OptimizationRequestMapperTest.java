@@ -80,4 +80,27 @@ class OptimizationRequestMapperTest {
 
         assertThat(input.allowsMultipleProfessors()).isTrue();
     }
+
+    @Test
+    void turmaOffering_withNoCourse_doesNotThrowAndReportsTurmaId() {
+        Subject subject = new Subject();
+        subject.setId(100L);
+        subject.setWorkload(2);
+
+        Turma turma = new Turma();
+        turma.setId(300L);
+
+        SubjectOffering offering = new SubjectOffering();
+        offering.setId(500L);
+        offering.setSubject(subject);
+        offering.setCourse(null);
+        offering.setTurma(turma);
+        offering.setExpectedStudents(30);
+
+        SubjectOfferingInput input = mapper.toSubjectOfferingInput(offering, List.of());
+
+        assertThat(input.courseId()).isNull();
+        assertThat(input.turmaId()).isEqualTo(300L);
+        assertThat(input.allowedTimeSlotIds()).isNull();
+    }
 }

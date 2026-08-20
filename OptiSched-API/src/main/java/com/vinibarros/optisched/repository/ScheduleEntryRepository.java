@@ -16,6 +16,8 @@ public interface ScheduleEntryRepository extends JpaRepository<ScheduleEntry, Lo
 
     boolean existsByProfessorId(Long professorId);
 
+    boolean existsBySubjectOfferingId(Long subjectOfferingId);
+
     @EntityGraph(attributePaths = {"schedule", "professor", "subjectOffering.subject", "subjectOffering.course", "classroom", "timeSlot"})
     List<ScheduleEntry> findByScheduleId(Long scheduleId);
 

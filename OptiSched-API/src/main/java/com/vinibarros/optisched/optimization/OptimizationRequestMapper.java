@@ -45,7 +45,8 @@ public class OptimizationRequestMapper {
     }
 
     public SubjectOfferingInput toSubjectOfferingInput(SubjectOffering offering, List<TimeSlot> timeSlots) {
-        PreferredShift allowedShift = offering.getCourse().getAllowedShift();
+        Course course = offering.getCourse();
+        PreferredShift allowedShift = course != null ? course.getAllowedShift() : null;
         List<Long> allowedTimeSlotIds = allowedShift != null
                 ? timeSlots.stream()
                         .filter(t -> matchesShift(t.getStartTime(), allowedShift))
@@ -53,11 +54,16 @@ public class OptimizationRequestMapper {
                         .toList()
                 : null;
 
+        Integer requiredTimeSlots = offering.getWeeklyWorkload() != null
+                ? offering.getWeeklyWorkload()
+                : offering.getSubject().getWorkload();
+
         return new SubjectOfferingInput(
                 offering.getId(),
                 offering.getSubject().getId(),
-                offering.getCourse().getId(),
-                offering.getSubject().getWorkload(),
+                course != null ? course.getId() : null,
+                offering.getTurma() != null ? offering.getTurma().getId() : null,
+                requiredTimeSlots,
                 offering.getExpectedStudents(),
                 offering.getRecommendedSemester(),
                 offering.getSubject().getRequiredRoomType(),

@@ -12,6 +12,8 @@ public record ScheduleEntryResponse(
         String section,
         Long courseId,
         String courseName,
+        Long turmaId,
+        String turmaName,
         Integer recommendedSemester,
         Long professorId,
         String professorName,

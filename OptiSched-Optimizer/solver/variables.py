@@ -244,6 +244,18 @@ class AuxiliaryVariables:
     #
     s: dict[tuple[int, int], int]
 
+    # ======================================================
+    # Turma Home Classroom
+    # ======================================================
+    #
+    # u_home_(k,r) = 1 if turma k uses classroom r at least once during
+    # the week, counting only its non-specialized offerings — those with
+    # no required_room_type. These are the offerings bound by the "fixed
+    # home room" rule (C18); an offering with a required_room_type (lab,
+    # gym, computer room...) is never indexed here, since it's exempt.
+    #
+    u_home: dict[tuple[int, int], int]
+
 def create_integer_variable(model: Highs, name: str, lower_bound: float = 0.0, upper_bound: float | None = None,) -> int:
 
     if upper_bound is None:
@@ -275,6 +287,7 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
     u = {}
     u_daily = {}
     s = {}
+    u_home = {}
 
     # ======================================================
     # Professor Variables
@@ -430,6 +443,33 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
                     name=f"b_{offering}_{time_slot}",
                 )
 
+    # ======================================================
+    # Turma Home Classroom
+    # ======================================================
+
+    # Which (turma, classroom) combinations actually occur among the x
+    # columns of a turma's non-specialized offerings — u_home only needs
+    # to exist there, same pruning rationale as u_daily above.
+    turma_room_pairs: dict[int, set[int]] = {}
+
+    for (professor, offering, classroom, time_slot) in variables.x.keys():
+
+        turma = data.turma_of_offering.get(offering)
+
+        if turma is None or data.required_classroom_type.get(offering) is not None:
+            continue
+
+        turma_room_pairs.setdefault(turma, set()).add(classroom)
+
+    for turma, rooms in turma_room_pairs.items():
+
+        for classroom in rooms:
+
+            u_home[(turma, classroom)] = create_binary_variable(
+                model=model,
+                name=f"u_home_{turma}_{classroom}",
+            )
+
     return AuxiliaryVariables(
         z=z,
         f=f,
@@ -440,4 +480,5 @@ def create_auxiliary_variables(model: Highs, data: SolverData, variables: Variab
         u=u,
         u_daily=u_daily,
         s=s,
+        u_home=u_home,
     )

@@ -8,6 +8,6 @@ public record SubjectOfferingRequest(
         @NotNull Long semesterId,
         @NotBlank @Size(max = 20) String section,
         @NotNull @Positive Integer expectedStudents,
-        @NotNull @Min(1) Integer recommendedSemester
+        @Min(1) Integer recommendedSemester
         )
 {}

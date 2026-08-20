@@ -7,6 +7,7 @@ public record LoginResult(
         String name,
         String role,
         Long institutionId,
-        Long professorId
+        Long professorId,
+        String institutionType
 ) {}
 

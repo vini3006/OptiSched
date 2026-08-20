@@ -120,11 +120,12 @@ def add_professor_consistency_constraint(model: Highs, variables: Variables) -> 
         )
 
 # ==========================================================
-# C4 - Course Conflict
+# C4 - Course/Turma Conflict
 # ==========================================================
 #
 # SubjectOfferings belonging to the same Course and
-# RecommendedSemester cannot occur simultaneously.
+# RecommendedSemester (UNIVERSITY mode), or to the same Turma
+# (SCHOOL mode), cannot occur simultaneously.
 #
 # Mathematical formulation:
 #
@@ -923,6 +924,83 @@ def add_offering_daily_contiguity_constraint(model: Highs, data: SolverData, var
             )
 
 # ==========================================================
+# C18 - Turma Home Classroom
+# ==========================================================
+#
+# A turma's non-specialized subjects (no required_room_type — e.g. Math,
+# Portuguese, History) must all be taught in the SAME classroom across
+# the whole week: the turma has a fixed "home room" and professors move
+# to it, mirroring how a real K-12 class actually works. Offerings with
+# an explicit required_room_type (labs, gym, computer room, auditorium)
+# are exempt — the turma still moves for those, since no single room
+# could satisfy two conflicting room-type requirements at once. Course
+# offerings (turma_id is None) are entirely untouched by this constraint.
+#
+# Same two-part pattern as C16 (link + exclusivity), scoped to
+# (turma, classroom) across the whole week instead of (offering,
+# classroom, day):
+#
+# (C18a) Home classroom usage linking:
+#
+#      x_port ≤ u_home_(turma(o),r)
+#
+#   ∀ p ∈ P, o ∈ O with turma(o) set and required_room_type(o) = None,
+#   r ∈ R, t ∈ T
+#
+# (C18b) Home classroom exclusivity:
+#
+#      Σ u_home_(k,r) ≤ 1
+#        r
+#
+#   ∀ k ∈ K (turmas with at least one non-specialized offering)
+#
+# ==========================================================
+
+def add_turma_home_classroom_link_constraint(model: Highs, data: SolverData, variables: Variables, auxiliary: AuxiliaryVariables) -> None:
+
+    for (professor, offering, classroom, time_slot), x_column in variables.x.items():
+
+        turma = data.turma_of_offering.get(offering)
+
+        if turma is None or data.required_classroom_type.get(offering) is not None:
+            continue
+
+        u_home_column = auxiliary.u_home[(turma, classroom)]
+
+        #
+        # x ≤ u_home
+        #
+        # x - u_home ≤ 0
+        #
+
+        model.addRow(
+            -model.getInfinity(),
+            0.0,
+            2,
+            [x_column, u_home_column],
+            [1.0, -1.0]
+        )
+
+def add_turma_home_classroom_exclusivity_constraint(model: Highs, auxiliary: AuxiliaryVariables) -> None:
+
+    columns_by_turma: dict[int, list[int]] = {}
+
+    for (turma, classroom), u_home_column in auxiliary.u_home.items():
+        columns_by_turma.setdefault(turma, []).append(u_home_column)
+
+    for indices in columns_by_turma.values():
+
+        coefficients = [1.0] * len(indices)
+
+        model.addRow(
+            -model.getInfinity(),
+            1.0,
+            len(indices),
+            indices,
+            coefficients
+        )
+
+# ==========================================================
 # Adding all the constraints to the model
 # ==========================================================
 
@@ -1000,3 +1078,13 @@ def add_all_constraints(model: Highs, data: SolverData, variables: Variables, au
 
     # C17
     add_offering_daily_contiguity_constraint(model, data, variables, auxiliary)
+
+    # ==========================================================
+    # Hard Constraints (C18)
+    # ==========================================================
+
+    # C18a
+    add_turma_home_classroom_link_constraint(model, data, variables, auxiliary)
+
+    # C18b
+    add_turma_home_classroom_exclusivity_constraint(model, auxiliary)

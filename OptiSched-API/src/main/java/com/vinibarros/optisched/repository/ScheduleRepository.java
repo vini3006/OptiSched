@@ -24,14 +24,16 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     boolean existsBySemesterIdAndStatusAndInstitutionId(Long semesterId, ScheduleStatus status, Long institutionId);
 
     /**
-     * courseId is nullable and Spring Data JPA correctly translates it into
-     * "course_id IS NULL" — pass null to look up the whole-institution
-     * schedule (course-less), or a real id to look up that course's own
-     * scoped schedule. Since a semester can now have one ACTIVE schedule per
-     * course PLUS one course-less ACTIVE schedule at the same time, the old
-     * course-blind lookup would no longer be unambiguous.
+     * courseId/turmaId are nullable and Spring Data JPA correctly translates
+     * each into "IS NULL" — pass both null to look up the whole-institution
+     * schedule, a real courseId (turmaId null) for that course's own scoped
+     * schedule, or a real turmaId (courseId null) for that turma's. A
+     * semester can have one ACTIVE schedule per course/turma PLUS one
+     * unscoped ACTIVE schedule at the same time, so both columns must be
+     * checked together — checking courseId alone can no longer disambiguate
+     * "unscoped" from "turma-scoped", since both have course_id NULL.
      */
-    Schedule findBySemesterIdAndStatusAndInstitutionIdAndCourseId(Long semesterId, ScheduleStatus status, Long institutionId, Long courseId);
+    Schedule findBySemesterIdAndStatusAndInstitutionIdAndCourseIdAndTurmaId(Long semesterId, ScheduleStatus status, Long institutionId, Long courseId, Long turmaId);
 
     /**
      * All ACTIVE schedules of a semester across every course (plus the

@@ -10,6 +10,7 @@ public record ScheduleResponse(
     LocalDateTime generatedAt,
     ScheduleStatus status,
     Integer version,
-    Long courseId
+    Long courseId,
+    Long turmaId
 )
 {}

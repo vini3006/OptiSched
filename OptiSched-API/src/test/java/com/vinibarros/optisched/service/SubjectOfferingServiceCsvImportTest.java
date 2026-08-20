@@ -112,6 +112,7 @@ class SubjectOfferingServiceCsvImportTest {
 
     @Test
     void importFromCsv_unknownCourseName_reportsClearErrorWithoutTouchingTheDatabase() {
+        when(institutionRepository.findById(INSTITUTION_ID)).thenReturn(Optional.of(new Institution()));
         when(courseRepository.findByNameAndInstitutionId("Curso Inexistente", INSTITUTION_ID))
                 .thenReturn(Optional.empty());
 
@@ -129,6 +130,7 @@ class SubjectOfferingServiceCsvImportTest {
 
     @Test
     void importFromCsv_unknownSemester_reportsClearErrorWithoutTouchingTheDatabase() {
+        when(institutionRepository.findById(INSTITUTION_ID)).thenReturn(Optional.of(new Institution()));
         when(courseRepository.findByNameAndInstitutionId("Engenharia de Computação", INSTITUTION_ID))
                 .thenReturn(Optional.of(course(1L, 10)));
         when(subjectRepository.findByCodeAndInstitutionId("CALC1", INSTITUTION_ID))

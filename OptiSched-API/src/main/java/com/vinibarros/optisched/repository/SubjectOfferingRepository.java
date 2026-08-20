@@ -13,6 +13,7 @@ public interface SubjectOfferingRepository extends JpaRepository<SubjectOffering
     Optional<SubjectOffering> findByIdAndInstitutionId(Long id, Long institutionId);
     List<SubjectOffering> findAllByInstitutionId(Long institutionId);
     List<SubjectOffering> findByCourseId(Long courseId);
+    List<SubjectOffering> findByTurmaId(Long turmaId);
     List<SubjectOffering> findBySubjectId(Long subjectId);
     List<SubjectOffering> findBySemesterId(Long semesterId);
     boolean existsByCourseIdAndSubjectIdAndSemesterIdAndSectionAndInstitutionId(
@@ -21,5 +22,10 @@ public interface SubjectOfferingRepository extends JpaRepository<SubjectOffering
             Long semesterId,
             String section,
             Long institutionId
+    );
+    Optional<SubjectOffering> findByTurmaIdAndSubjectIdAndSemesterId(
+            Long turmaId,
+            Long subjectId,
+            Long semesterId
     );
 }

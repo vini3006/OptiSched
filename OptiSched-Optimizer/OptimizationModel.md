@@ -397,6 +397,49 @@ A schedule with a gap (e.g. offering \(o\) at slot 1 and slot 3 of a day, but no
 
 ---
 
+### Turma Constraints
+
+#### (C18) Turma Home Classroom
+
+A turma's non-specialized offerings — those with no `required_room_type` set (e.g. Math, Portuguese, History) — must all be taught in the same classroom across the entire week: the turma has a fixed "home room" and professors move to it, mirroring how a real K-12 class actually works. This is a **hard** guarantee, and it groups a turma's offerings *across subjects*, unlike (C15)/(S4)/(C16), which each act on a single offering in isolation.
+
+Offerings with an explicit `required_room_type` (labs, gym, computer room, auditorium) are exempt — the turma still moves for those, since no single room could satisfy two conflicting room-type requirements at once (e.g. Math needs COMMON, PE needs GYM). Course offerings (no turma) are entirely untouched.
+
+Let \(K\) be the set of turmas, \(\text{turma}(o)\) the turma a SCHOOL-mode offering \(o\) belongs to (undefined for course offerings), and \(O_k^{\text{home}}=\{o\in O:\text{turma}(o)=k,\ \text{requiredType}_o=\varnothing\}\) turma \(k\)'s non-specialized offerings.
+
+Auxiliary variable:
+
+\[
+u^{home}_{kr}=
+\begin{cases}
+1,&\text{if turma }k\text{ uses classroom }r\text{ at least once during the week,}\\
+&\text{counting only its offerings in }O_k^{\text{home}}\\
+0,&\text{otherwise}
+\end{cases}
+\]
+
+Linking (mirrors C16, but scoped per turma instead of per offering/day):
+
+\[
+x_{port}\le u^{home}_{\text{turma}(o),r},
+\qquad
+\forall p\in P,\;o\in O_k^{\text{home}},\;r\in R,\;t\in T,\;k\in K
+\]
+
+Home-room exclusivity:
+
+\[
+\sum_{r\in R}u^{home}_{kr}\le1,
+\qquad
+\forall k\in K
+\]
+
+Because the linking constraint forces \(u^{home}_{kr}=1\) whenever any non-specialized offering of turma \(k\) uses room \(r\), the cap above makes it mathematically impossible for two different classrooms to both be "used" by that turma's ordinary subjects — the whole week, not just a single day.
+
+\(u_{or}\) (C15/S4) and \(u^{day}_{ord}\) (C16) are unaffected and keep governing per-offering room stability the same way they always did; (C18) simply adds a *cross-offering* rule on top, scoped to turma-mode offerings only.
+
+---
+
 ### Time Slot Constraints
 
 No additional hard constraints are required.
@@ -628,4 +671,4 @@ $$\begin{aligned}
            & \varepsilon \cdot \text{OffPreferredWindow}
 \end{aligned}$$
 
-$$\text{subject to constraints } (C1) \text{ to } (C17), \text{ including } (C4b), \text{ plus any locked assignments } L.$$
+$$\text{subject to constraints } (C1) \text{ to } (C18), \text{ including } (C4b), \text{ plus any locked assignments } L.$$

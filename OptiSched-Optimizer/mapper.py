@@ -91,7 +91,7 @@ class SolverData:
     classroom_capacity: dict[int, int]
 
     # Subject offerings that cannot occur simultaneously
-    # (same course + recommended semester)
+    # (same course + recommended semester, or same turma)
     conflicts: set[tuple[int, int]]
 
     objective_weights: ObjectiveWeights
@@ -132,6 +132,13 @@ class SolverData:
     # variable's own (p, o, r, t) key shape so a locked entry can be looked
     # up directly during variable creation.
     locked_assignments: set[tuple[int, int, int, int]] = field(default_factory=set)
+
+    # Turma each offering belongs to (SCHOOL mode only) — absent means
+    # course-mode (UNIVERSITY) or the offering otherwise has no turma.
+    # Used by C18 (turma home classroom) to group a turma's own offerings
+    # together regardless of subject; unrelated to the pairwise `conflicts`
+    # set above, which only ever pairs up offerings, never groups them.
+    turma_of_offering: dict[int, int] = field(default_factory=dict)
 
 # ==========================================================
 # Mapper
@@ -197,6 +204,12 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
     co_teaching_offerings = {
         o.id for o in request.subject_offerings
         if o.allows_multiple_professors
+    }
+
+    turma_of_offering = {
+        o.id: o.turma_id
+        for o in request.subject_offerings
+        if o.turma_id is not None
     }
 
     # ======================================================
@@ -267,8 +280,11 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
     # Conflict Set
     # ======================================================
     #
-    # Two SubjectOfferings conflict if they belong to the
-    # same course and recommended semester.
+    # Two SubjectOfferings conflict if they belong to the same
+    # course and recommended semester (UNIVERSITY mode), or to
+    # the same turma (SCHOOL mode) — course_id/turma_id are
+    # mutually exclusive per offering, so at most one of the two
+    # conditions below can ever apply to a given pair.
     #
     # These offerings cannot be scheduled during the same
     # TimeSlot.
@@ -286,11 +302,18 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
             o1 = offerings[i]
             o2 = offerings[j]
 
-            if (
-                o1.course_id == o2.course_id
-                and
-                o1.recommended_semester == o2.recommended_semester
-            ):
+            university_conflict = (
+                o1.course_id is not None
+                and o1.course_id == o2.course_id
+                and o1.recommended_semester == o2.recommended_semester
+            )
+
+            school_conflict = (
+                o1.turma_id is not None
+                and o1.turma_id == o2.turma_id
+            )
+
+            if university_conflict or school_conflict:
 
                 conflicts.add((o1.id, o2.id))
 
@@ -419,6 +442,7 @@ def build_solver_data(request: OptimizationRequest) -> SolverData:
         preferred_time_slots=preferred_time_slots,
         locked_assignments=locked_assignments,
         allowed_time_slots=allowed_time_slots,
-        co_teaching_offerings=co_teaching_offerings
+        co_teaching_offerings=co_teaching_offerings,
+        turma_of_offering=turma_of_offering,
     )
 

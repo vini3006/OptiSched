@@ -5,12 +5,14 @@ import com.vinibarros.optisched.dto.request.CourseRequest;
 import com.vinibarros.optisched.dto.response.CourseResponse;
 import com.vinibarros.optisched.entity.Course;
 import com.vinibarros.optisched.entity.Institution;
+import com.vinibarros.optisched.enums.InstitutionType;
 import com.vinibarros.optisched.exception.DuplicateResourceException;
 import com.vinibarros.optisched.exception.ResourceInUseException;
 import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.CourseMapper;
 import com.vinibarros.optisched.repository.CourseRepository;
 import com.vinibarros.optisched.repository.InstitutionRepository;
+import com.vinibarros.optisched.util.InstitutionTypeUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,7 @@ public class CourseService {
 
         Institution institution = institutionRepository.findById(institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "create a course");
 
         Course course = courseMapper.toEntity(request, institution);
         Course saved = courseRepository.save(course);
@@ -64,6 +67,10 @@ public class CourseService {
     public CourseResponse update(Long id, CourseRequest request, Long institutionId){
         Course course = courseRepository.findByIdAndInstitutionId(id, institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", id));
+
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+        InstitutionTypeUtils.requireType(institution, InstitutionType.UNIVERSITY, "update a course");
 
         if (!course.getName().equalsIgnoreCase(request.name()) &&
                 courseRepository.existsByNameAndInstitutionId(request.name(), institutionId)) {

@@ -11,6 +11,7 @@ import com.vinibarros.optisched.exception.NoScheduleEntriesException;
 import com.vinibarros.optisched.exception.ResourceNotFoundException;
 import com.vinibarros.optisched.mapper.ScheduleMapper;
 import com.vinibarros.optisched.repository.*;
+import com.vinibarros.optisched.service.TurmaOfferingSyncService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,8 @@ public class ScheduleGenerationService {
     private final ScheduleEntryRepository scheduleEntryRepository;
     private final InstitutionRepository institutionRepository;
     private final CourseRepository courseRepository;
+    private final TurmaRepository turmaRepository;
+    private final TurmaOfferingSyncService turmaOfferingSyncService;
     private final OptimizationRequestMapper requestMapper;
     private final OptimizerClient optimizerClient;
     private final EmailSender emailSender;
@@ -49,6 +52,8 @@ public class ScheduleGenerationService {
             ScheduleEntryRepository scheduleEntryRepository,
             InstitutionRepository institutionRepository,
             CourseRepository courseRepository,
+            TurmaRepository turmaRepository,
+            TurmaOfferingSyncService turmaOfferingSyncService,
             OptimizationRequestMapper requestMapper,
             OptimizerClient optimizerClient,
             EmailSender emailSender
@@ -63,6 +68,8 @@ public class ScheduleGenerationService {
         this.scheduleEntryRepository = scheduleEntryRepository;
         this.institutionRepository = institutionRepository;
         this.courseRepository = courseRepository;
+        this.turmaRepository = turmaRepository;
+        this.turmaOfferingSyncService = turmaOfferingSyncService;
         this.requestMapper = requestMapper;
         this.optimizerClient = optimizerClient;
         this.emailSender = emailSender;
@@ -73,14 +80,21 @@ public class ScheduleGenerationService {
         Semester semester = semesterRepository.findByIdAndInstitutionId(semesterId, institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Semester", semesterId));
 
+        turmaOfferingSyncService.syncOfferings(institutionId, semester);
+
         Course course = options.courseId() != null
                 ? courseRepository.findByIdAndInstitutionId(options.courseId(), institutionId)
                         .orElseThrow(() -> new ResourceNotFoundException("Course", options.courseId()))
                 : null;
 
+        Turma turma = options.turmaId() != null
+                ? turmaRepository.findByIdAndInstitutionId(options.turmaId(), institutionId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Turma", options.turmaId()))
+                : null;
+
         List<SubjectOffering> offerings = subjectOfferingRepository.findBySemesterId(semesterId).stream()
-                .filter(o -> o.getRecommendedSemester() != null)
-                .filter(o -> course == null || o.getCourse().getId().equals(course.getId()))
+                .filter(o -> course == null || (o.getCourse() != null && o.getCourse().getId().equals(course.getId())))
+                .filter(o -> turma == null || (o.getTurma() != null && o.getTurma().getId().equals(turma.getId())))
                 .toList();
 
         if (offerings.isEmpty()) {
@@ -110,13 +124,14 @@ public class ScheduleGenerationService {
                         .toList()
                 : Collections.emptyList();
 
-        // Aulas travadas na grade ativa anterior DESTE curso (ou da grade
-        // completa, se courseId for nulo) são repassadas ao otimizador como
-        // atribuições fixas, para que a nova geração as mantenha exatamente
-        // como estão.
+        // Aulas travadas na grade ativa anterior DESTE curso/turma (ou da
+        // grade completa, se nem courseId nem turmaId forem informados) são
+        // repassadas ao otimizador como atribuições fixas, para que a nova
+        // geração as mantenha exatamente como estão.
         Long courseId = course != null ? course.getId() : null;
-        Schedule previousActive = scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseId(
-                semesterId, ScheduleStatus.ACTIVE, institutionId, courseId
+        Long turmaId = turma != null ? turma.getId() : null;
+        Schedule previousActive = scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseIdAndTurmaId(
+                semesterId, ScheduleStatus.ACTIVE, institutionId, courseId, turmaId
         );
         List<LockedAssignmentInput> lockedAssignments = new java.util.ArrayList<>();
         if (previousActive != null) {
@@ -125,14 +140,14 @@ public class ScheduleGenerationService {
                     .forEach(lockedAssignments::add);
         }
 
-        // Geração escopada a um curso específico: as aulas já comprometidas
-        // nas grades ATIVAS de outros cursos do mesmo semestre entram como
-        // atribuições fixas adicionais (mesmo mecanismo de lock acima, fonte
-        // diferente), para que o solver nunca escale professor/sala já
-        // ocupado por outro curso. Sem escopo (courseId nulo, grade
-        // completa), não existem "outras grades" — tudo está sendo gerado
-        // junto, como sempre foi.
-        if (course != null) {
+        // Geração escopada a um curso ou turma específico: as aulas já
+        // comprometidas nas grades ATIVAS de outros cursos/turmas do mesmo
+        // semestre entram como atribuições fixas adicionais (mesmo mecanismo
+        // de lock acima, fonte diferente), para que o solver nunca escale
+        // professor/sala já ocupado por outro curso/turma. Sem escopo
+        // (courseId e turmaId nulos, grade completa), não existem "outras
+        // grades" — tudo está sendo gerado junto, como sempre foi.
+        if (course != null || turma != null) {
             Long previousActiveId = previousActive != null ? previousActive.getId() : null;
             scheduleRepository.findAllBySemesterIdAndStatusAndInstitutionId(semesterId, ScheduleStatus.ACTIVE, institutionId).stream()
                     .filter(s -> !s.getId().equals(previousActiveId))
@@ -160,7 +175,7 @@ public class ScheduleGenerationService {
             scheduleRepository.save(previousActive);
         }
 
-        Schedule schedule = scheduleMapper.toEntity(semester, institution, course);
+        Schedule schedule = scheduleMapper.toEntity(semester, institution, course, turma);
         schedule.setGeneratedAt(LocalDateTime.now());
         schedule.setStatus(ScheduleStatus.ACTIVE);
         schedule.setVersion((int) scheduleRepository.countBySemesterIdAndInstitutionId(semesterId, institutionId) + 1);

@@ -39,10 +39,12 @@ public class AuthService {
         }
 
         Long institutionId = null;
+        String institutionType = null;
         Long professorId = null;
 
         if (user.getInstitution() != null) {
             institutionId = user.getInstitution().getId();
+            institutionType = user.getInstitution().getType().name();
         }
 
         if ("PROFESSOR".equals(user.getRole().name())) {
@@ -57,7 +59,8 @@ public class AuthService {
                 user.getName(),
                 institutionId,
                 user.getRole().name(),
-                professorId
+                professorId,
+                institutionType
         );
 
         return new LoginResult(
@@ -67,7 +70,8 @@ public class AuthService {
                 user.getName(),
                 user.getRole().name(),
                 institutionId,
-                professorId
+                professorId,
+                institutionType
         );
     }
 }

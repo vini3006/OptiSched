@@ -7,6 +7,8 @@ public record SubjectOfferingResponse(
         Long semesterId,
         String section,
         Integer expectedStudents,
-        Integer recommendedSemester
+        Integer recommendedSemester,
+        Long turmaId,
+        Integer weeklyWorkload
 )
 {}

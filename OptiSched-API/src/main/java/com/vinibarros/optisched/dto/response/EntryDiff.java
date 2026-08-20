@@ -6,6 +6,7 @@ public record EntryDiff(
         Long subjectOfferingId,
         String subjectName,
         String courseName,
+        String turmaName,
         List<ScheduleEntryResponse> before,
         List<ScheduleEntryResponse> after
 )

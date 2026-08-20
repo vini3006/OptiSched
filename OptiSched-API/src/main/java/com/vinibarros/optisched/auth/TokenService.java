@@ -21,7 +21,7 @@ public class TokenService {
         this.jwtEncoder = jwtEncoder;
     }
 
-    public String generateToken(Long userId, String email, String name, Long institutionId, String role, Long professorId) {
+    public String generateToken(Long userId, String email, String name, Long institutionId, String role, Long professorId, String institutionType) {
         Instant now = Instant.now();
 
         JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
@@ -40,6 +40,10 @@ public class TokenService {
 
         if (professorId != null) {
             claimsBuilder.claim("professor_id", professorId);
+        }
+
+        if (institutionType != null) {
+            claimsBuilder.claim("institution_type", institutionType);
         }
 
         return this.jwtEncoder.encode(JwtEncoderParameters.from(claimsBuilder.build())).getTokenValue();

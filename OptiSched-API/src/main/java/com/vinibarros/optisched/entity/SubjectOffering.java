@@ -10,12 +10,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(
-        name = "subject_offering",
-        uniqueConstraints = @UniqueConstraint(name = "unique_subject_offering_per_institution",
-                columnNames = {"course_id", "subject_id", "semester_id", "section", "institution_id"}
-        )
-)
+@Table(name = "subject_offering")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,8 +21,13 @@ public class SubjectOffering extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "course_id", nullable = false)
+    /**
+     * XOR with {@link #turma}: set for UNIVERSITY-mode offerings (with
+     * {@link #section}), null for SCHOOL-mode ones — enforced at the DB level
+     * by chk_subject_offering_course_xor_turma (V20), not by JPA.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
     private Course course;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -38,14 +38,26 @@ public class SubjectOffering extends Auditable {
     @JoinColumn(name = "semester_id", nullable = false)
     private Semester semester;
 
-    @Column(nullable = false)
     private String section;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "turma_id")
+    private Turma turma;
 
     @Column(name = "expected_students", nullable = false)
     private Integer expectedStudents;
 
     @Column(name = "recommended_semester")
     private Integer recommendedSemester;
+
+    /**
+     * Only set for SCHOOL-mode (turma) offerings, synced from
+     * {@link SerieSubject#getWeeklyWorkload()} — overrides
+     * {@link Subject#getWorkload()} for that turma's offering. Null for
+     * UNIVERSITY-mode (course) offerings, which always use Subject.workload.
+     */
+    @Column(name = "weekly_workload")
+    private Integer weeklyWorkload;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)

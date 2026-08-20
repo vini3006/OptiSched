@@ -21,14 +21,18 @@ public class SubjectOfferingMapper {
     }
 
     public SubjectOfferingResponse toResponse(SubjectOffering subjectOffering){
+        Course course = subjectOffering.getCourse();
+        Turma turma = subjectOffering.getTurma();
         return new SubjectOfferingResponse(
                 subjectOffering.getId(),
-                subjectOffering.getCourse().getId(),
+                course != null ? course.getId() : null,
                 subjectOffering.getSubject().getId(),
                 subjectOffering.getSemester().getId(),
                 subjectOffering.getSection(),
                 subjectOffering.getExpectedStudents(),
-                subjectOffering.getRecommendedSemester()
+                subjectOffering.getRecommendedSemester(),
+                turma != null ? turma.getId() : null,
+                subjectOffering.getWeeklyWorkload()
         );
     }
 }

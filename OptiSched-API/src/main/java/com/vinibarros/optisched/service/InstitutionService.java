@@ -72,6 +72,10 @@ public class InstitutionService {
         institution.setCnpj(request.cnpj());
         institution.setSubscriptionStatus(request.subscriptionStatus());
         institution.setExpiresAt(request.expiresAt());
+        // Deliberately NOT institution.setType(request.type()) — type is
+        // Super-Admin-set at creation only and immutable afterwards, even
+        // though the request DTO carries it (the edit form sends the
+        // existing value back, disabled, but this service ignores it).
 
         Institution updated = institutionRepository.save(institution);
         return institutionMapper.toResponse(updated);

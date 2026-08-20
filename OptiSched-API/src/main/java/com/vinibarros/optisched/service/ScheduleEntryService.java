@@ -62,16 +62,25 @@ public class ScheduleEntryService {
     }
 
     /**
-     * Mirrors the optimizer's C4 (Course Conflict) hard constraint: two
-     * offerings of the same course + recommended semester can never share a
-     * TimeSlot, since a student in that semester would need to be in both at
-     * once. The optimizer never produces this, but manual edits (update/move)
-     * had no equivalent check — this closes that gap.
+     * Mirrors the optimizer's C4 hard constraint: two offerings of the same
+     * course + recommended semester (UNIVERSITY mode), or of the same turma
+     * (SCHOOL mode), can never share a TimeSlot, since a student would need
+     * to be in both at once. The optimizer never produces this, but manual
+     * edits (update/move) had no equivalent check — this closes that gap.
      */
     private boolean isCourseConflict(SubjectOffering a, SubjectOffering b) {
         if (a.getId().equals(b.getId())) return false;
-        return Objects.equals(a.getCourse().getId(), b.getCourse().getId())
-                && Objects.equals(a.getRecommendedSemester(), b.getRecommendedSemester());
+
+        if (a.getCourse() != null && b.getCourse() != null) {
+            return Objects.equals(a.getCourse().getId(), b.getCourse().getId())
+                    && Objects.equals(a.getRecommendedSemester(), b.getRecommendedSemester());
+        }
+
+        if (a.getTurma() != null && b.getTurma() != null) {
+            return Objects.equals(a.getTurma().getId(), b.getTurma().getId());
+        }
+
+        return false;
     }
 
     private void assertNoCourseConflict(Long scheduleId, SubjectOffering movingOffering, Long timeSlotId, Set<Long> excludedEntryIds) {
