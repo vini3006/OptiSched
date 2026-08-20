@@ -67,6 +67,7 @@ import {
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER } from "@/lib/enum-labels";
 import type { Professor } from "@/types/Professor";
 import type { ProfessorQualification } from "@/types/ProfessorQualification";
@@ -146,11 +147,12 @@ export function ProfessorsPage() {
 function ProfessorsGroupedByInstitution() {
   const { t } = useTranslation("adminProfessors");
   const queryClient = useQueryClient();
+  const { institutionMode } = useInstitutionMode();
   const {
     institutions,
     itemsByInstitution: professorsByInstitution,
     isLoading,
-  } = useGroupedByInstitution("professors", listProfessors);
+  } = useGroupedByInstitution("professors", listProfessors, institutionMode);
 
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);

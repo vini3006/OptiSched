@@ -6,9 +6,11 @@ export type ScheduleEntry = {
   subjectOfferingId: number;
   subjectId: number;
   subjectName: string;
-  section: string;
-  courseId: number;
-  courseName: string;
+  section: string | null;
+  courseId: number | null;
+  courseName: string | null;
+  turmaId: number | null;
+  turmaName: string | null;
   recommendedSemester: number | null;
   professorId: number;
   professorName: string;

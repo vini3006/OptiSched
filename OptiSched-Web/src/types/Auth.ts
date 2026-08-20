@@ -1,3 +1,5 @@
+import type { InstitutionType } from "@/types/Institution";
+
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "PROFESSOR";
 
 export type AuthUser = {
@@ -7,6 +9,7 @@ export type AuthUser = {
   role: UserRole;
   institutionId: number | null;
   professorId: number | null;
+  institutionType: InstitutionType | null;
 };
 
 export type LoginCredentials = {

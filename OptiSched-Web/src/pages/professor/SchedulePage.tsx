@@ -13,9 +13,24 @@ import { listScheduleEntries } from "@/api/schedule-entries";
 import { listTimeSlots } from "@/api/time-slots";
 import { listSemesters } from "@/api/semesters";
 import { useAuth } from "@/hooks/UseAuth";
+import type { ScheduleEntry } from "@/types/ScheduleEntry";
 
 function EmptyNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
+}
+
+/**
+ * courseName/section (UNIVERSITY mode) and turmaName (SCHOOL mode) are
+ * mutually exclusive on a ScheduleEntry — this picks whichever one applies.
+ */
+function entryGroupLabel(
+  entry: ScheduleEntry,
+  t: (key: string, options?: Record<string, string | null>) => string
+): string {
+  if (entry.courseName !== null) {
+    return t("entryCourseSection", { course: entry.courseName, section: entry.section });
+  }
+  return entry.turmaName ?? "";
 }
 
 export function SchedulePage() {
@@ -112,9 +127,7 @@ export function SchedulePage() {
                 renderEntry={(entry) => (
                   <>
                     <p className="font-medium text-foreground">{entry.subjectName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("entryCourseSection", { course: entry.courseName, section: entry.section })}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{entryGroupLabel(entry, t)}</p>
                     <p className="text-xs text-muted-foreground">
                       {t("entryClassroom", { classroom: entry.classroomNumber })}
                     </p>
@@ -131,9 +144,7 @@ export function SchedulePage() {
                 renderEntry={(entry) => (
                   <>
                     <p className="font-medium text-foreground">{entry.subjectName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("entryCourseSection", { course: entry.courseName, section: entry.section })}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{entryGroupLabel(entry, t)}</p>
                     <p className="text-xs text-muted-foreground">
                       {t("entryClassroom", { classroom: entry.classroomNumber })}
                     </p>

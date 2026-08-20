@@ -79,15 +79,17 @@ import {
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 import { DatePickerField } from "@/components/ui/date-picker";
 import { ROOM_TYPE_LABELS, TERM_LABELS } from "@/lib/enum-labels";
 import type { RoomType } from "@/types/Classroom";
 import type { Course } from "@/types/Course";
 import type { Subject } from "@/types/Subject";
 import type { Semester, SemesterInput, Term } from "@/types/Semester";
+import type { InstitutionType } from "@/types/Institution";
 import type { SubjectOffering } from "@/types/SubjectOffering";
 
-function EmptyInstitutionNotice({ text }: { text: string }) {
+export function EmptyInstitutionNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
@@ -159,7 +161,10 @@ export function AcademicStructurePage() {
           {isSuperAdmin ? (
             <SemestersGroupedByInstitution />
           ) : selectedInstitutionId ? (
-            <SemestersTab institutionId={selectedInstitutionId} />
+            <SemestersTab
+              institutionId={selectedInstitutionId}
+              institutionType={user?.institutionType ?? "UNIVERSITY"}
+            />
           ) : (
             <EmptyInstitutionNotice text={t("selectInstitutionSemesters")} />
           )}
@@ -185,8 +190,9 @@ export function AcademicStructurePage() {
 
 function CoursesGroupedByInstitution() {
   const { t } = useTranslation("adminAcademicStructure");
+  const { institutionMode } = useInstitutionMode();
   const { institutions, itemsByInstitution: coursesByInstitution, isLoading } =
-    useGroupedByInstitution("courses", listCourses);
+    useGroupedByInstitution("courses", listCourses, institutionMode);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 
@@ -504,10 +510,11 @@ function CoursesTab({ institutionId }: { institutionId: number }) {
 // Disciplinas
 // ---------------------------------------------------------------------------
 
-function SubjectsGroupedByInstitution() {
+export function SubjectsGroupedByInstitution() {
   const { t } = useTranslation("adminAcademicStructure");
+  const { institutionMode } = useInstitutionMode();
   const { institutions, itemsByInstitution: subjectsByInstitution, isLoading } =
-    useGroupedByInstitution("subjects", listSubjects);
+    useGroupedByInstitution("subjects", listSubjects, institutionMode);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 
@@ -577,7 +584,7 @@ function SubjectsGroupedByInstitution() {
   );
 }
 
-function SubjectsTab({ institutionId }: { institutionId: number }) {
+export function SubjectsTab({ institutionId }: { institutionId: number }) {
   const { t } = useTranslation("adminAcademicStructure");
   const subjectCsvColumns = useSubjectCsvColumns();
   const queryClient = useQueryClient();
@@ -854,10 +861,11 @@ function SubjectsTab({ institutionId }: { institutionId: number }) {
 // Semestres
 // ---------------------------------------------------------------------------
 
-function SemestersGroupedByInstitution() {
+export function SemestersGroupedByInstitution() {
   const { t } = useTranslation("adminAcademicStructure");
+  const { institutionMode } = useInstitutionMode();
   const { institutions, itemsByInstitution: semestersByInstitution, isLoading } =
-    useGroupedByInstitution("semesters", listSemesters);
+    useGroupedByInstitution("semesters", listSemesters, institutionMode);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 
@@ -889,17 +897,20 @@ function SemestersGroupedByInstitution() {
             )}
             {institutions.map((institution) => {
               const count = semestersByInstitution.get(institution.id)?.length ?? 0;
+              const isSchool = institution.type === "SCHOOL";
               return (
                 <TableRow key={institution.id}>
                   <TableCell className="font-medium">{institution.name}</TableCell>
-                  <TableCell>{t("semesters.count", { count })}</TableCell>
+                  <TableCell>
+                    {isSchool ? t("semesters.school.count", { count }) : t("semesters.count", { count })}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setViewingInstitutionId(institution.id)}
                     >
-                      {t("semesters.view")}
+                      {isSchool ? t("semesters.school.view") : t("semesters.view")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -915,12 +926,20 @@ function SemestersGroupedByInstitution() {
       >
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t("semesters.ofInstitution", { institution: viewingInstitution?.name })}</DialogTitle>
-            <DialogDescription>{t("semesters.manageInInstitution")}</DialogDescription>
+            <DialogTitle>
+              {viewingInstitution?.type === "SCHOOL"
+                ? t("semesters.school.ofInstitution", { institution: viewingInstitution?.name })
+                : t("semesters.ofInstitution", { institution: viewingInstitution?.name })}
+            </DialogTitle>
+            <DialogDescription>
+              {viewingInstitution?.type === "SCHOOL"
+                ? t("semesters.school.manageInInstitution")
+                : t("semesters.manageInInstitution")}
+            </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto">
-            {viewingInstitutionId !== null && (
-              <SemestersTab institutionId={viewingInstitutionId} />
+            {viewingInstitutionId !== null && viewingInstitution && (
+              <SemestersTab institutionId={viewingInstitutionId} institutionType={viewingInstitution.type} />
             )}
           </div>
         </DialogContent>
@@ -929,7 +948,14 @@ function SemestersGroupedByInstitution() {
   );
 }
 
-function SemestersTab({ institutionId }: { institutionId: number }) {
+export function SemestersTab({
+  institutionId,
+  institutionType,
+}: {
+  institutionId: number;
+  institutionType: InstitutionType;
+}) {
+  const isSchool = institutionType === "SCHOOL";
   const { t } = useTranslation("adminAcademicStructure");
   const queryClient = useQueryClient();
   const queryKey = ["semesters", institutionId] as const;
@@ -963,7 +989,7 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
   function toSemesterInput(values: SemesterFormValues): SemesterInput {
     return {
       year: values.year,
-      term: values.term,
+      term: isSchool ? "FIRST" : values.term,
       startDate: values.startDate || null,
       endDate: values.endDate || null,
     };
@@ -1027,18 +1053,19 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
         await createMutation.mutateAsync(values);
       }
     } catch {
-      setFormError(t("semesters.saveError"));
+      setFormError(isSchool ? t("semesters.school.saveError") : t("semesters.saveError"));
     }
   }
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const columnCount = isSchool ? 2 : 3;
 
   return (
     <div>
       <div className="flex justify-end">
         <Button variant="outline" onClick={openCreate}>
           <Plus className="size-4" />
-          {t("semesters.new")}
+          {isSchool ? t("semesters.school.new") : t("semesters.new")}
         </Button>
       </div>
 
@@ -1046,35 +1073,39 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("semesters.columnYear")}</TableHead>
-              <TableHead>{t("semesters.columnTerm")}</TableHead>
+              <TableHead>{isSchool ? t("semesters.school.columnYear") : t("semesters.columnYear")}</TableHead>
+              {!isSchool && <TableHead>{t("semesters.columnTerm")}</TableHead>}
               <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
                   {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && semesters?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                  {t("semesters.noneRegistered")}
+                <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
+                  {isSchool ? t("semesters.school.noneRegistered") : t("semesters.noneRegistered")}
                 </TableCell>
               </TableRow>
             )}
             {semesters?.map((semester) => (
               <TableRow key={semester.id}>
                 <TableCell className="font-medium">{semester.year}</TableCell>
-                <TableCell>{TERM_LABELS[semester.term]}</TableCell>
+                {!isSchool && <TableCell>{TERM_LABELS[semester.term]}</TableCell>}
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={t("semesters.editAriaLabel", { year: semester.year, term: semester.term })}
+                    aria-label={
+                      isSchool
+                        ? t("semesters.school.editAriaLabel", { year: semester.year })
+                        : t("semesters.editAriaLabel", { year: semester.year, term: semester.term })
+                    }
                     onClick={() => openEdit(semester)}
                   >
                     <Pencil className="size-4" />
@@ -1082,7 +1113,11 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={t("semesters.deleteAriaLabel", { year: semester.year, term: semester.term })}
+                    aria-label={
+                      isSchool
+                        ? t("semesters.school.deleteAriaLabel", { year: semester.year })
+                        : t("semesters.deleteAriaLabel", { year: semester.year, term: semester.term })
+                    }
                     onClick={() => setDeleting(semester)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -1097,15 +1132,31 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? t("semesters.editDialogTitle") : t("semesters.newDialogTitle")}</DialogTitle>
+            <DialogTitle>
+              {editing
+                ? isSchool
+                  ? t("semesters.school.editDialogTitle")
+                  : t("semesters.editDialogTitle")
+                : isSchool
+                  ? t("semesters.school.newDialogTitle")
+                  : t("semesters.newDialogTitle")}
+            </DialogTitle>
             <DialogDescription>
-              {editing ? t("semesters.editDialogDescription") : t("semesters.newDialogDescription")}
+              {editing
+                ? isSchool
+                  ? t("semesters.school.editDialogDescription")
+                  : t("semesters.editDialogDescription")
+                : isSchool
+                  ? t("semesters.school.newDialogDescription")
+                  : t("semesters.newDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.year}>
-                <FieldLabel htmlFor="semester-year">{t("semesters.columnYear")}</FieldLabel>
+                <FieldLabel htmlFor="semester-year">
+                  {isSchool ? t("semesters.school.columnYear") : t("semesters.columnYear")}
+                </FieldLabel>
                 <Input
                   id="semester-year"
                   type="number"
@@ -1113,25 +1164,27 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
                 />
                 <FieldError errors={[errors.year]} />
               </Field>
-              <Field data-invalid={!!errors.term}>
-                <FieldLabel htmlFor="semester-term">{t("semesters.columnTerm")}</FieldLabel>
-                <Select
-                  value={term}
-                  onValueChange={(value) => setValue("term", value as SemesterFormValues["term"])}
-                >
-                  <SelectTrigger id="semester-term" className="w-full">
-                    <SelectValue>{(value: Term) => TERM_LABELS[value]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-                    {Object.entries(TERM_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[errors.term]} />
-              </Field>
+              {!isSchool && (
+                <Field data-invalid={!!errors.term}>
+                  <FieldLabel htmlFor="semester-term">{t("semesters.columnTerm")}</FieldLabel>
+                  <Select
+                    value={term}
+                    onValueChange={(value) => setValue("term", value as SemesterFormValues["term"])}
+                  >
+                    <SelectTrigger id="semester-term" className="w-full">
+                      <SelectValue>{(value: Term) => TERM_LABELS[value]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                      {Object.entries(TERM_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[errors.term]} />
+                </Field>
+              )}
               <Field data-invalid={!!errors.startDate}>
                 <FieldLabel htmlFor="semester-start-date">{t("semesters.formStartDateLabel")}</FieldLabel>
                 <DatePickerField
@@ -1169,12 +1222,16 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("semesters.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isSchool ? t("semesters.school.deleteTitle") : t("semesters.deleteTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("semesters.deleteDescription", {
-                year: deleting?.year,
-                term: deleting ? TERM_LABELS[deleting.term] : "",
-              })}
+              {isSchool
+                ? t("semesters.school.deleteDescription", { year: deleting?.year })
+                : t("semesters.deleteDescription", {
+                    year: deleting?.year,
+                    term: deleting ? TERM_LABELS[deleting.term] : "",
+                  })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1198,9 +1255,11 @@ function SemestersTab({ institutionId }: { institutionId: number }) {
 
 function OfferingsGroupedByInstitution() {
   const { t } = useTranslation("adminAcademicStructure");
+  const { institutionMode } = useInstitutionMode();
   const { institutions, isLoading } = useGroupedByInstitution(
     "subject-offerings",
-    listSubjectOfferings
+    listSubjectOfferings,
+    institutionMode
   );
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
@@ -1454,12 +1513,15 @@ function SubjectOfferingsTab({
     setEditing(offering);
     setFormError(null);
     reset({
-      courseId: offering.courseId,
+      // This tab only ever lists course-mode offerings (courseId/section/
+      // recommendedSemester always set) — the ?? fallbacks just satisfy
+      // SubjectOffering's now-nullable typing, which also covers turma-mode.
+      courseId: offering.courseId ?? 0,
       subjectId: offering.subjectId,
       semesterId: offering.semesterId,
-      section: offering.section,
+      section: offering.section ?? "",
       expectedStudents: offering.expectedStudents,
-      recommendedSemester: offering.recommendedSemester,
+      recommendedSemester: offering.recommendedSemester ?? 1,
     });
     setDialogOpen(true);
   }
@@ -1547,7 +1609,7 @@ function SubjectOfferingsTab({
             )}
             {filteredOfferings?.map((offering) => (
               <TableRow key={offering.id}>
-                <TableCell className="font-medium">{courseName(offering.courseId)}</TableCell>
+                <TableCell className="font-medium">{courseName(offering.courseId ?? 0)}</TableCell>
                 <TableCell>{subjectName(offering.subjectId)}</TableCell>
                 <TableCell>{semesterName(offering.semesterId)}</TableCell>
                 <TableCell>{offering.section}</TableCell>

@@ -102,7 +102,7 @@ export function buildIcsContent(
       `DTSTART:${formatFloatingDateTime(firstDate, entryStart.hours, entryStart.minutes)}`,
       `DTEND:${formatFloatingDateTime(firstDate, entryEnd.hours, entryEnd.minutes)}`,
       `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[entry.dayOfWeek]};UNTIL=${until}`,
-      `SUMMARY:${escapeIcsText(`${entry.subjectName} — ${entry.courseName}`)}`,
+      `SUMMARY:${escapeIcsText(`${entry.subjectName} — ${entry.courseName ?? entry.turmaName ?? ""}`)}`,
       `LOCATION:${escapeIcsText(`Sala ${entry.classroomNumber}`)}`,
       "END:VEVENT"
     );

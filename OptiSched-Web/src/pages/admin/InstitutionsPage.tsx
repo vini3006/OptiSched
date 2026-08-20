@@ -54,7 +54,8 @@ import {
   institutionSchema,
   type InstitutionFormValues,
 } from "@/lib/validations/institution-schema";
-import { SUBSCRIPTION_STATUS_LABELS } from "@/lib/enum-labels";
+import { INSTITUTION_TYPE_LABELS, SUBSCRIPTION_STATUS_LABELS } from "@/lib/enum-labels";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 import type { Institution, InstitutionInput } from "@/types/Institution";
 
 const INSTITUTIONS_QUERY_KEY = ["institutions"] as const;
@@ -65,16 +66,21 @@ function toInstitutionInput(values: InstitutionFormValues): InstitutionInput {
     cnpj: values.cnpj,
     subscriptionStatus: values.subscriptionStatus,
     expiresAt: values.expiresAt ? `${values.expiresAt}T23:59:59` : null,
+    type: values.type,
   };
 }
 
 export function InstitutionsPage() {
   const { t } = useTranslation("adminInstitutions");
   const queryClient = useQueryClient();
-  const { data: institutions, isLoading } = useQuery({
+  const { institutionMode } = useInstitutionMode();
+  const { data: allInstitutions, isLoading } = useQuery({
     queryKey: INSTITUTIONS_QUERY_KEY,
     queryFn: listInstitutions,
   });
+  const institutions = allInstitutions?.filter(
+    (institution) => institution.type === institutionMode
+  );
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingInstitution, setEditingInstitution] = useState<Institution | null>(null);
@@ -90,11 +96,12 @@ export function InstitutionsPage() {
     formState: { errors },
   } = useForm<InstitutionFormValues>({
     resolver: zodResolver(institutionSchema),
-    defaultValues: { name: "", cnpj: "", subscriptionStatus: "TRIAL", expiresAt: "" },
+    defaultValues: { name: "", cnpj: "", subscriptionStatus: "TRIAL", expiresAt: "", type: "UNIVERSITY" },
   });
 
   const subscriptionStatus = watch("subscriptionStatus");
   const expiresAt = watch("expiresAt");
+  const type = watch("type");
 
   const createMutation = useMutation({
     mutationFn: (values: InstitutionFormValues) => createInstitution(toInstitutionInput(values)),
@@ -124,7 +131,7 @@ export function InstitutionsPage() {
   function openCreateSheet() {
     setEditingInstitution(null);
     setFormError(null);
-    reset({ name: "", cnpj: "", subscriptionStatus: "TRIAL", expiresAt: "" });
+    reset({ name: "", cnpj: "", subscriptionStatus: "TRIAL", expiresAt: "", type: "UNIVERSITY" });
     setSheetOpen(true);
   }
 
@@ -136,6 +143,7 @@ export function InstitutionsPage() {
       cnpj: institution.cnpj,
       subscriptionStatus: institution.subscriptionStatus,
       expiresAt: institution.expiresAt ? institution.expiresAt.slice(0, 10) : "",
+      type: institution.type,
     });
     setSheetOpen(true);
   }
@@ -180,6 +188,7 @@ export function InstitutionsPage() {
             <TableRow>
               <TableHead>{t("columnName")}</TableHead>
               <TableHead>{t("columnCnpj")}</TableHead>
+              <TableHead>{t("columnType")}</TableHead>
               <TableHead>{t("columnSubscription")}</TableHead>
               <TableHead>{t("columnExpiresAt")}</TableHead>
               <TableHead className="text-right">{t("columnActions")}</TableHead>
@@ -188,14 +197,14 @@ export function InstitutionsPage() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   {t("common:status.loading")}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && institutions?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   {t("noInstitutions")}
                 </TableCell>
               </TableRow>
@@ -204,6 +213,9 @@ export function InstitutionsPage() {
               <TableRow key={institution.id}>
                 <TableCell className="font-medium">{institution.name}</TableCell>
                 <TableCell>{institution.cnpj}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{INSTITUTION_TYPE_LABELS[institution.type]}</Badge>
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline">{institution.subscriptionStatus}</Badge>
                 </TableCell>
@@ -266,6 +278,32 @@ export function InstitutionsPage() {
                     {...register("cnpj")}
                   />
                   <FieldError errors={[errors.cnpj]} />
+                </Field>
+
+                <Field data-invalid={!!errors.type}>
+                  <FieldLabel htmlFor="institution-type">{t("formType")}</FieldLabel>
+                  <Select
+                    value={type}
+                    onValueChange={(value) =>
+                      setValue("type", value as InstitutionFormValues["type"])
+                    }
+                    disabled={!!editingInstitution}
+                  >
+                    <SelectTrigger id="institution-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                      {Object.entries(INSTITUTION_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {editingInstitution && (
+                    <p className="text-xs text-muted-foreground">{t("formTypeLockedHint")}</p>
+                  )}
+                  <FieldError errors={[errors.type]} />
                 </Field>
 
                 <Field data-invalid={!!errors.subscriptionStatus}>

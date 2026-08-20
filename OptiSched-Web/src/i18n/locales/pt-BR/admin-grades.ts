@@ -45,6 +45,7 @@ export default {
   noScheduleYet: "Nenhuma grade gerada ainda. Clique em “Gerar nova grade” pra criar a primeira.",
 
   tabByCourse: "Por Curso",
+  tabByTurma: "Por Turma",
   tabByProfessor: "Por Professor",
   tabByClassroom: "Por Sala",
   tabBySubject: "Por Disciplina",
@@ -52,8 +53,12 @@ export default {
   generateDialogTitle: "Gerar nova grade",
   generateDialogDescription:
     "Escolha o semestre. A geração roda o otimizador e pode levar até cerca de um minuto.",
+  generateDialogDescriptionSchool:
+    "Escolha o ano letivo. A geração roda o otimizador e pode levar até cerca de um minuto.",
   semesterLabel: "Semestre",
+  semesterLabelSchool: "Ano Letivo",
   selectSemesterPlaceholder: "Selecione um semestre",
+  selectSemesterPlaceholderSchool: "Selecione um ano letivo",
   generateCourseLabel: "Curso",
   generateCourseDescription:
     "Restrinja a geração a um único curso — as grades já ativas dos outros cursos são respeitadas e não são alteradas.",
@@ -81,6 +86,7 @@ export default {
 
   editEntryTitle: "Editar aula",
   entryDescription: "{{subject}} · {{course}} · Turma {{section}}",
+  entryDescriptionSchool: "{{subject}} · {{turma}}",
   professorLabel: "Professor",
   selectProfessorPlaceholder: "Selecione um professor",
   classroomLabel: "Sala",
@@ -117,6 +123,10 @@ export default {
   selectCourseNotice: "Selecione um curso para ver os calendários por período.",
   periodLabel: "{{period}}º período",
   noEntriesThisPeriod: "Nenhuma aula alocada nesse período.",
+  filterTurmaLabel: "Turma",
+  selectTurmaPlaceholder: "Selecione uma turma",
+  selectTurmaNotice: "Selecione uma turma para ver o calendário dela.",
+  noEntriesThisTurma: "Nenhuma aula alocada pra essa turma.",
   entryClassroom: "Sala: {{classroom}}",
 
   filterProfessorLabel: "Professor",

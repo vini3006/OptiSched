@@ -11,15 +11,18 @@ import {
 } from "@/components/ui/select";
 import { listInstitutions } from "@/api/institutions";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 
 const INSTITUTIONS_QUERY_KEY = ["institutions"] as const;
 
 export function InstitutionSelectorBar() {
   const { t } = useTranslation("appNavBar");
-  const { data: institutions } = useQuery({
+  const { data: allInstitutions } = useQuery({
     queryKey: INSTITUTIONS_QUERY_KEY,
     queryFn: listInstitutions,
   });
+  const { institutionMode } = useInstitutionMode();
+  const institutions = allInstitutions?.filter((institution) => institution.type === institutionMode);
   const { selectedInstitutionId, setSelectedInstitutionId } = useSelectedInstitution();
 
   useEffect(() => {

@@ -5,7 +5,7 @@ export type SubjectOffering = {
   semesterId: number;
   section: string;
   expectedStudents: number;
-  recommendedSemester: number;
+  recommendedSemester: number | null;
 };
 
 export type SubjectOfferingInput = {
@@ -14,5 +14,5 @@ export type SubjectOfferingInput = {
   semesterId: number;
   section: string;
   expectedStudents: number;
-  recommendedSemester: number;
+  recommendedSemester?: number | null;
 };

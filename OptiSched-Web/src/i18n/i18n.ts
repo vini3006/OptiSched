@@ -5,6 +5,7 @@ import common from "@/i18n/locales/pt-BR/common";
 import adminUsers from "@/i18n/locales/pt-BR/admin-users";
 import adminProfessors from "@/i18n/locales/pt-BR/admin-professors";
 import adminAcademicStructure from "@/i18n/locales/pt-BR/admin-academic-structure";
+import adminTurmas from "@/i18n/locales/pt-BR/admin-turmas";
 import adminInfrastructure from "@/i18n/locales/pt-BR/admin-infrastructure";
 import adminGrades from "@/i18n/locales/pt-BR/admin-grades";
 import adminInstitutions from "@/i18n/locales/pt-BR/admin-institutions";
@@ -26,6 +27,7 @@ void i18next.use(initReactI18next).init({
     "adminUsers",
     "adminProfessors",
     "adminAcademicStructure",
+    "adminTurmas",
     "adminInfrastructure",
     "adminGrades",
     "adminInstitutions",
@@ -46,6 +48,7 @@ void i18next.use(initReactI18next).init({
       adminUsers,
       adminProfessors,
       adminAcademicStructure,
+      adminTurmas,
       adminInfrastructure,
       adminGrades,
       adminInstitutions,

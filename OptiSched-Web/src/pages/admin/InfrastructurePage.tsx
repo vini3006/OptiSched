@@ -66,6 +66,7 @@ import { timeSlotSchema, type TimeSlotFormValues } from "@/lib/validations/time-
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 import { DAY_OF_WEEK_LABELS, DAY_OF_WEEK_ORDER, ROOM_TYPE_LABELS } from "@/lib/enum-labels";
 import type { Classroom, RoomType } from "@/types/Classroom";
 import type { DayOfWeek, TimeSlot } from "@/types/TimeSlot";
@@ -143,11 +144,12 @@ export function InfrastructurePage() {
 
 function ClassroomsGroupedByInstitution() {
   const { t } = useTranslation("adminInfrastructure");
+  const { institutionMode } = useInstitutionMode();
   const {
     institutions,
     itemsByInstitution: classroomsByInstitution,
     isLoading,
-  } = useGroupedByInstitution("classrooms", listClassrooms);
+  } = useGroupedByInstitution("classrooms", listClassrooms, institutionMode);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 
@@ -481,7 +483,12 @@ function ClassroomsTab({ institutionId }: { institutionId: number }) {
 
 function TimeSlotsGroupedByInstitution() {
   const { t } = useTranslation("adminInfrastructure");
-  const { institutions, isLoading } = useGroupedByInstitution("time-slots", listTimeSlots);
+  const { institutionMode } = useInstitutionMode();
+  const { institutions, isLoading } = useGroupedByInstitution(
+    "time-slots",
+    listTimeSlots,
+    institutionMode
+  );
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const viewingInstitution = institutions.find((i) => i.id === viewingInstitutionId) ?? null;
 

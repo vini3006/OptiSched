@@ -11,6 +11,7 @@ export const institutionSchema = z.object({
     .regex(/^\d{14}$/, t("institution.cnpjInvalid")),
   subscriptionStatus: z.enum(["TRIAL", "ACTIVE", "CANCELED", "UNPAID"]),
   expiresAt: z.string().optional(),
+  type: z.enum(["UNIVERSITY", "SCHOOL"]),
 });
 
 export type InstitutionFormValues = z.infer<typeof institutionSchema>;

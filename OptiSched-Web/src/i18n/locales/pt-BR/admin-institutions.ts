@@ -5,6 +5,7 @@ export default {
 
   columnName: "Nome",
   columnCnpj: "CNPJ",
+  columnType: "Tipo",
   columnSubscription: "Assinatura",
   columnExpiresAt: "Expira em",
   columnActions: "Ações",
@@ -21,6 +22,8 @@ export default {
   formName: "Nome",
   formCnpj: "CNPJ",
   formCnpjPlaceholder: "Somente números",
+  formType: "Tipo de instituição",
+  formTypeLockedHint: "O tipo não pode ser alterado após a criação da instituição.",
   formSubscriptionStatus: "Status da assinatura",
   formExpiresAt: "Expira em",
   saveInstitutionError: "Não foi possível salvar a instituição. Verifique os dados e tente novamente.",

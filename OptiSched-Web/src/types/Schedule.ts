@@ -14,7 +14,8 @@ export type Schedule = {
 export type EntryDiff = {
   subjectOfferingId: number;
   subjectName: string;
-  courseName: string;
+  courseName: string | null;
+  turmaName: string | null;
   before: ScheduleEntry[];
   after: ScheduleEntry[];
 };

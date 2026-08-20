@@ -56,7 +56,9 @@ import {
   toggleScheduleEntryLocked,
   updateScheduleEntry,
 } from "@/api/schedule-entries";
+import { getInstitution } from "@/api/institutions";
 import { listCourses } from "@/api/courses";
+import { listTurmas } from "@/api/turmas";
 import { listSubjects } from "@/api/subjects";
 import { listProfessors } from "@/api/professors";
 import { listClassrooms } from "@/api/classrooms";
@@ -76,6 +78,7 @@ import type { PreferredShift, Schedule } from "@/types/Schedule";
 import type { ScheduleEntry } from "@/types/ScheduleEntry";
 import type { Semester } from "@/types/Semester";
 import type { Course } from "@/types/Course";
+import type { Turma } from "@/types/Turma";
 import type { Professor } from "@/types/Professor";
 import type { Classroom } from "@/types/Classroom";
 import type { Subject } from "@/types/Subject";
@@ -85,19 +88,34 @@ function EmptyNotice({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
-function semesterLabel(semesters: Semester[] | undefined, semesterId: number) {
+function semesterLabel(semesters: Semester[] | undefined, semesterId: number, isSchool: boolean) {
   const semester = semesters?.find((s) => s.id === semesterId);
-  return semester ? `${semester.year} - ${TERM_LABELS[semester.term]}` : `#${semesterId}`;
+  if (!semester) return `#${semesterId}`;
+  return isSchool ? `${semester.year}` : `${semester.year} - ${TERM_LABELS[semester.term]}`;
 }
 
-function scheduleLabel(semesters: Semester[] | undefined, schedule: Schedule) {
-  return `${semesterLabel(semesters, schedule.semesterId)} (Versão ${schedule.version})`;
+function scheduleLabel(semesters: Semester[] | undefined, schedule: Schedule, isSchool: boolean) {
+  return `${semesterLabel(semesters, schedule.semesterId, isSchool)} (Versão ${schedule.version})`;
 }
 
 function timeSlotLabel(timeSlots: TimeSlot[] | undefined, timeSlotId: number) {
   const timeSlot = timeSlots?.find((t) => t.id === timeSlotId);
   if (!timeSlot) return `#${timeSlotId}`;
   return `${DAY_OF_WEEK_LABELS[timeSlot.dayOfWeek]} · ${timeSlot.startTime.slice(0, 5)} - ${timeSlot.endTime.slice(0, 5)}`;
+}
+
+/**
+ * courseName/section (UNIVERSITY mode) and turmaName (SCHOOL mode) are
+ * mutually exclusive on a ScheduleEntry — this picks whichever one applies.
+ */
+function entryGroupLabel(
+  entry: ScheduleEntry,
+  t: (key: string, options?: Record<string, string | null>) => string
+): string {
+  if (entry.courseName !== null) {
+    return t("entryClassSection", { course: entry.courseName, section: entry.section });
+  }
+  return entry.turmaName ?? "";
 }
 
 /**
@@ -180,6 +198,12 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const queryClient = useQueryClient();
   const schedulesQueryKey = ["schedules", institutionId] as const;
 
+  const { data: institution } = useQuery({
+    queryKey: ["institution", institutionId],
+    queryFn: () => getInstitution(institutionId),
+  });
+  const isSchool = institution?.type === "SCHOOL";
+
   const { data: schedules } = useQuery({
     queryKey: schedulesQueryKey,
     queryFn: () => listSchedules(institutionId),
@@ -191,6 +215,10 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const { data: courses } = useQuery({
     queryKey: ["courses", institutionId],
     queryFn: () => listCourses(institutionId),
+  });
+  const { data: turmas } = useQuery({
+    queryKey: ["turmas", institutionId],
+    queryFn: () => listTurmas(institutionId),
   });
   const { data: subjects } = useQuery({
     queryKey: ["subjects", institutionId],
@@ -258,6 +286,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const dimensions = useMemo(() => getWeeklyGridDimensions(entries ?? []), [entries]);
 
   const [courseId, setCourseId] = useState<number | null>(null);
+  const [turmaId, setTurmaId] = useState<number | null>(null);
   const [professorId, setProfessorId] = useState<number | null>(null);
   const [classroomId, setClassroomId] = useState<number | null>(null);
   const [subjectId, setSubjectId] = useState<number | null>(null);
@@ -499,14 +528,14 @@ function GradesContent({ institutionId }: { institutionId: number }) {
               <SelectValue placeholder={t("selectSchedulePlaceholder")}>
                 {(value: string) => {
                   const schedule = sortedSchedules.find((s) => String(s.id) === value);
-                  return schedule ? scheduleLabel(semesters, schedule) : value;
+                  return schedule ? scheduleLabel(semesters, schedule, isSchool) : value;
                 }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
               {sortedSchedules.map((schedule) => (
                 <SelectItem key={schedule.id} value={String(schedule.id)}>
-                  {scheduleLabel(semesters, schedule)}
+                  {scheduleLabel(semesters, schedule, isSchool)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -569,26 +598,45 @@ function GradesContent({ institutionId }: { institutionId: number }) {
         {scheduleId === null && <EmptyNotice text={t("noScheduleYet")} />}
         {scheduleId !== null && isLoadingEntries && <EmptyNotice text={t("common:status.loading")} />}
         {scheduleId !== null && !isLoadingEntries && (
-          <Tabs defaultValue="curso">
+          <Tabs defaultValue={isSchool ? "turma" : "curso"}>
             <TabsList>
-              <TabsTrigger value="curso">{t("tabByCourse")}</TabsTrigger>
+              {isSchool ? (
+                <TabsTrigger value="turma">{t("tabByTurma")}</TabsTrigger>
+              ) : (
+                <TabsTrigger value="curso">{t("tabByCourse")}</TabsTrigger>
+              )}
               <TabsTrigger value="professor">{t("tabByProfessor")}</TabsTrigger>
               <TabsTrigger value="sala">{t("tabByClassroom")}</TabsTrigger>
               <TabsTrigger value="disciplina">{t("tabBySubject")}</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="curso" className="mt-4">
-              <ByCourseView
-                entries={entries ?? []}
-                courses={courses}
-                dimensions={dimensions}
-                courseId={courseId}
-                onCourseIdChange={setCourseId}
-                onEntryClick={openEditEntry}
-                onEntryDrop={handleEntryDrop}
-                onToggleLock={handleToggleLock}
-              />
-            </TabsContent>
+            {isSchool ? (
+              <TabsContent value="turma" className="mt-4">
+                <ByTurmaView
+                  entries={entries ?? []}
+                  turmas={turmas}
+                  dimensions={dimensions}
+                  turmaId={turmaId}
+                  onTurmaIdChange={setTurmaId}
+                  onEntryClick={openEditEntry}
+                  onEntryDrop={handleEntryDrop}
+                  onToggleLock={handleToggleLock}
+                />
+              </TabsContent>
+            ) : (
+              <TabsContent value="curso" className="mt-4">
+                <ByCourseView
+                  entries={entries ?? []}
+                  courses={courses}
+                  dimensions={dimensions}
+                  courseId={courseId}
+                  onCourseIdChange={setCourseId}
+                  onEntryClick={openEditEntry}
+                  onEntryDrop={handleEntryDrop}
+                  onToggleLock={handleToggleLock}
+                />
+              </TabsContent>
+            )}
             <TabsContent value="professor" className="mt-4">
               <ByProfessorView
                 entries={entries ?? []}
@@ -645,25 +693,33 @@ function GradesContent({ institutionId }: { institutionId: number }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("generateDialogTitle")}</DialogTitle>
-            <DialogDescription>{t("generateDialogDescription")}</DialogDescription>
+            <DialogDescription>
+              {isSchool ? t("generateDialogDescriptionSchool") : t("generateDialogDescription")}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmitGenerate)} noValidate>
             <FieldGroup>
               <Field data-invalid={!!errors.semesterId}>
-                <FieldLabel htmlFor="generate-semester">{t("semesterLabel")}</FieldLabel>
+                <FieldLabel htmlFor="generate-semester">
+                  {isSchool ? t("semesterLabelSchool") : t("semesterLabel")}
+                </FieldLabel>
                 <Select
                   value={generateSemesterId ? String(generateSemesterId) : ""}
                   onValueChange={(value) => setValue("semesterId", Number(value))}
                 >
                   <SelectTrigger id="generate-semester" className="w-full">
-                    <SelectValue placeholder={t("selectSemesterPlaceholder")}>
-                      {(value: string) => semesterLabel(semesters, Number(value))}
+                    <SelectValue
+                      placeholder={
+                        isSchool ? t("selectSemesterPlaceholderSchool") : t("selectSemesterPlaceholder")
+                      }
+                    >
+                      {(value: string) => semesterLabel(semesters, Number(value), isSchool)}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
                     {semesters?.map((semester) => (
                       <SelectItem key={semester.id} value={String(semester.id)}>
-                        {semester.year} - {TERM_LABELS[semester.term]}
+                        {isSchool ? semester.year : `${semester.year} - ${TERM_LABELS[semester.term]}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -671,32 +727,34 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                 <FieldError errors={[errors.semesterId]} />
               </Field>
 
-              <Field>
-                <FieldLabel htmlFor="generate-course">{t("generateCourseLabel")}</FieldLabel>
-                <p className="text-xs text-muted-foreground">{t("generateCourseDescription")}</p>
-                <Select
-                  value={generateCourseId !== null ? String(generateCourseId) : "ALL"}
-                  onValueChange={(value) => setValue("courseId", value === "ALL" ? null : Number(value))}
-                >
-                  <SelectTrigger id="generate-course" className="mt-1 w-full">
-                    <SelectValue placeholder={t("generateCourseAllOption")}>
-                      {(value: string) =>
-                        value === "ALL"
-                          ? t("generateCourseAllOption")
-                          : (courses?.find((c) => String(c.id) === value)?.name ?? value)
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-                    <SelectItem value="ALL">{t("generateCourseAllOption")}</SelectItem>
-                    {courses?.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+              {!isSchool && (
+                <Field>
+                  <FieldLabel htmlFor="generate-course">{t("generateCourseLabel")}</FieldLabel>
+                  <p className="text-xs text-muted-foreground">{t("generateCourseDescription")}</p>
+                  <Select
+                    value={generateCourseId !== null ? String(generateCourseId) : "ALL"}
+                    onValueChange={(value) => setValue("courseId", value === "ALL" ? null : Number(value))}
+                  >
+                    <SelectTrigger id="generate-course" className="mt-1 w-full">
+                      <SelectValue placeholder={t("generateCourseAllOption")}>
+                        {(value: string) =>
+                          value === "ALL"
+                            ? t("generateCourseAllOption")
+                            : (courses?.find((c) => String(c.id) === value)?.name ?? value)
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                      <SelectItem value="ALL">{t("generateCourseAllOption")}</SelectItem>
+                      {courses?.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
               <Field>
                 <FieldLabel>{t("compactScheduleLabel")}</FieldLabel>
@@ -854,11 +912,16 @@ function GradesContent({ institutionId }: { institutionId: number }) {
           <DialogHeader>
             <DialogTitle>{t("editEntryTitle")}</DialogTitle>
             <DialogDescription>
-              {t("entryDescription", {
-                subject: editingEntry?.subjectName,
-                course: editingEntry?.courseName,
-                section: editingEntry?.section,
-              })}
+              {editingEntry?.courseName !== null
+                ? t("entryDescription", {
+                    subject: editingEntry?.subjectName,
+                    course: editingEntry?.courseName,
+                    section: editingEntry?.section,
+                  })
+                : t("entryDescriptionSchool", {
+                    subject: editingEntry?.subjectName,
+                    turma: editingEntry?.turmaName,
+                  })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitEntry(onSubmitEditEntry)} noValidate>
@@ -1008,7 +1071,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
             <DialogTitle>{t("compareDialogTitle")}</DialogTitle>
             <DialogDescription>
               {selectedSchedule &&
-                t("comparingWith", { schedule: scheduleLabel(semesters, selectedSchedule) })}
+                t("comparingWith", { schedule: scheduleLabel(semesters, selectedSchedule, isSchool) })}
             </DialogDescription>
           </DialogHeader>
 
@@ -1022,7 +1085,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                 <SelectValue placeholder={t("selectVersionPlaceholder")}>
                   {(value: string) => {
                     const schedule = sameSemesterSchedules.find((s) => String(s.id) === value);
-                    return schedule ? scheduleLabel(semesters, schedule) : value;
+                    return schedule ? scheduleLabel(semesters, schedule, isSchool) : value;
                   }}
                 </SelectValue>
               </SelectTrigger>
@@ -1031,7 +1094,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                   .filter((s) => s.id !== selectedSchedule?.id)
                   .map((schedule) => (
                     <SelectItem key={schedule.id} value={String(schedule.id)}>
-                      {scheduleLabel(semesters, schedule)}
+                      {scheduleLabel(semesters, schedule, isSchool)}
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -1061,7 +1124,12 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                         <td className="py-2 pr-2">
                           <p className="font-medium text-foreground">{diff.subjectName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {t("entryClassSection", { course: diff.courseName, section: diff.before[0]?.section })}
+                            {diff.courseName !== null
+                              ? t("entryClassSection", {
+                                  course: diff.courseName,
+                                  section: diff.before[0]?.section ?? null,
+                                })
+                              : diff.turmaName}
                           </p>
                         </td>
                         <td className="py-2 pr-2 text-xs text-muted-foreground">
@@ -1200,6 +1268,85 @@ function ByCourseView({
 }
 
 // ---------------------------------------------------------------------------
+// Por Turma
+// ---------------------------------------------------------------------------
+
+function ByTurmaView({
+  entries,
+  turmas,
+  dimensions,
+  turmaId,
+  onTurmaIdChange,
+  onEntryClick,
+  onEntryDrop,
+  onToggleLock,
+}: {
+  entries: ScheduleEntry[];
+  turmas: Turma[] | undefined;
+  dimensions: WeeklyGridDimensions;
+  turmaId: number | null;
+  onTurmaIdChange: (turmaId: number | null) => void;
+  onEntryClick: (entry: ScheduleEntry) => void;
+  onEntryDrop: (entryId: number, day: DayOfWeek, startTime: string) => void;
+  onToggleLock: (entry: ScheduleEntry) => void;
+}) {
+  const { t } = useTranslation("adminGrades");
+  const turma = turmas?.find((tu) => tu.id === turmaId) ?? null;
+  const filtered = entries.filter((entry) => entry.turmaId === turmaId);
+
+  return (
+    <div>
+      <Field>
+        <FieldLabel htmlFor="filter-turma">{t("filterTurmaLabel")}</FieldLabel>
+        <Select
+          value={turmaId !== null ? String(turmaId) : ""}
+          onValueChange={(value) => onTurmaIdChange(value ? Number(value) : null)}
+        >
+          <SelectTrigger id="filter-turma" className="w-72">
+            <SelectValue placeholder={t("selectTurmaPlaceholder")}>
+              {(value: string) => turmas?.find((tu) => String(tu.id) === value)?.name ?? value}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+            {turmas?.map((tu) => (
+              <SelectItem key={tu.id} value={String(tu.id)}>
+                {tu.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {!turma ? (
+        <div className="mt-4">
+          <EmptyNotice text={t("selectTurmaNotice")} />
+        </div>
+      ) : (
+        <div className="mt-6">
+          <WeeklyScheduleGrid
+            entries={filtered}
+            days={dimensions.days}
+            rows={dimensions.rows}
+            emptyMessage={t("noEntriesThisTurma")}
+            onEntryClick={onEntryClick}
+            onToggleLock={onToggleLock}
+            draggable
+            onEntryDrop={onEntryDrop}
+            renderEntry={(entry) => (
+              <>
+                <p className="font-medium text-foreground">{entry.subjectName}</p>
+                <p className="text-xs text-muted-foreground">{entry.professorName}</p>
+                <p className="text-xs text-muted-foreground">{t("entryClassroom", { classroom: entry.classroomNumber })}</p>
+              </>
+            )}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Por Professor
 // ---------------------------------------------------------------------------
 
@@ -1268,7 +1415,7 @@ function ByProfessorView({
             renderEntry={(entry) => (
               <>
                 <p className="font-medium text-foreground">{entry.subjectName}</p>
-                <p className="text-xs text-muted-foreground">{entry.courseName}</p>
+                <p className="text-xs text-muted-foreground">{entry.courseName ?? entry.turmaName}</p>
                 <p className="text-xs text-muted-foreground">{t("entryClassroom", { classroom: entry.classroomNumber })}</p>
               </>
             )}
@@ -1348,7 +1495,7 @@ function ByClassroomView({
             renderEntry={(entry) => (
               <>
                 <p className="font-medium text-foreground">{entry.subjectName}</p>
-                <p className="text-xs text-muted-foreground">{entry.courseName}</p>
+                <p className="text-xs text-muted-foreground">{entry.courseName ?? entry.turmaName}</p>
                 <p className="text-xs text-muted-foreground">{entry.professorName}</p>
               </>
             )}
@@ -1428,9 +1575,7 @@ function BySubjectView({
             onEntryDrop={onEntryDrop}
             renderEntry={(entry) => (
               <>
-                <p className="font-medium text-foreground">
-                  {t("entryClassSection", { course: entry.courseName, section: entry.section })}
-                </p>
+                <p className="font-medium text-foreground">{entryGroupLabel(entry, t)}</p>
                 <p className="text-xs text-muted-foreground">{entry.professorName}</p>
                 <p className="text-xs text-muted-foreground">{t("entryClassroom", { classroom: entry.classroomNumber })}</p>
               </>

@@ -49,6 +49,14 @@ export default {
   semester: {
     endDateAfterStartDate: "A data de término deve ser depois da data de início.",
   },
+  serie: {
+    nameRequired: "Informe o nome da série.",
+  },
+  serieSubject: {
+    serieRequired: "Selecione uma série.",
+    subjectRequired: "Selecione uma disciplina.",
+    weeklyWorkloadInvalid: "Informe uma carga horária semanal válida.",
+  },
   subjectOffering: {
     courseRequired: "Selecione um curso.",
     subjectRequired: "Selecione uma disciplina.",
@@ -65,6 +73,12 @@ export default {
   timeSlot: {
     startTimeRequired: "Informe o horário de início.",
     endTimeRequired: "Informe o horário de término.",
+  },
+  turma: {
+    nameRequired: "Informe o nome da turma.",
+    expectedStudentsInvalid: "Informe um número de alunos válido.",
+    serieRequired: "Selecione uma série.",
+    yearInvalid: "Informe um ano válido.",
   },
   timeSlotGenerator: {
     daysOfWeekRequired: "Selecione ao menos um dia da semana.",

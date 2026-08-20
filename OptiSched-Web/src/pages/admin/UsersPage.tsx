@@ -52,6 +52,7 @@ import {
 import { useAuth } from "@/hooks/UseAuth";
 import { useGroupedByInstitution } from "@/hooks/useGroupedByInstitution";
 import { useSelectedInstitution } from "@/hooks/UseSelectedInstitution";
+import { useInstitutionMode } from "@/hooks/UseInstitutionMode";
 import type { ManagedUser } from "@/types/User";
 
 type CreateDialog = "admin" | "professor" | "super-admin" | null;
@@ -193,8 +194,9 @@ function UsersGroupedByInstitution() {
   const { t } = useTranslation("adminUsers");
   const professorCsvColumns = useProfessorCsvColumns();
   const queryClient = useQueryClient();
+  const { institutionMode } = useInstitutionMode();
   const { institutions, itemsByInstitution: usersByInstitution, isLoading } =
-    useGroupedByInstitution("users", listUsers);
+    useGroupedByInstitution("users", listUsers, institutionMode);
 
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);

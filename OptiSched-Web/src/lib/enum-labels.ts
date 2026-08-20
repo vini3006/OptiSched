@@ -1,6 +1,6 @@
 import type { DayOfWeek } from "@/types/TimeSlot";
 import type { Term } from "@/types/Semester";
-import type { SubscriptionStatus } from "@/types/Institution";
+import type { InstitutionType, SubscriptionStatus } from "@/types/Institution";
 import type { PreferredShift } from "@/types/Schedule";
 import type { RoomType } from "@/types/Classroom";
 
@@ -46,6 +46,11 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   ACTIVE: "Ativo",
   CANCELED: "Cancelado",
   UNPAID: "Inadimplente",
+};
+
+export const INSTITUTION_TYPE_LABELS: Record<InstitutionType, string> = {
+  UNIVERSITY: "Universidade",
+  SCHOOL: "Escola",
 };
 
 export const PREFERRED_SHIFT_LABELS: Record<PreferredShift, string> = {

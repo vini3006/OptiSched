@@ -9,6 +9,7 @@ export default {
     minhaInstituicao: "Minha Instituição",
     usuarios: "Usuários",
     estruturaAcademica: "Estrutura Acadêmica",
+    turmas: "Turmas",
     infraestrutura: "Infraestrutura",
     professores: "Professores",
     grades: "Grades",
@@ -22,6 +23,7 @@ export default {
     instituicoes: "Instituições",
     usuarios: "Usuários",
     estruturaAcademica: "Estrutura Acadêmica",
+    turmas: "Turmas",
     infraestrutura: "Infraestrutura",
     professores: "Professores",
     grades: "Grades",
@@ -29,4 +31,8 @@ export default {
 
   institutionSelectorLabel: "Instituição:",
   selectInstitutionPlaceholder: "Selecione uma instituição",
+
+  institutionModeLabel: "Visualizando:",
+  institutionModeUniversity: "Universidades",
+  institutionModeSchool: "Escolas",
 } as const;
