@@ -1,6 +1,7 @@
 export default {
   title: "Grades",
   subtitle: "Gere grades horárias automaticamente e visualize o resultado por curso, professor, sala ou disciplina.",
+  subtitleSchool: "Gere grades horárias automaticamente e visualize o resultado por turma, professor, sala ou disciplina.",
   selectInstitutionNotice: "Selecione uma instituição para ver as grades.",
   versionLabel: "(Versão {{version}})",
 
@@ -19,6 +20,10 @@ export default {
       "Esse horário já tem outra aula do mesmo curso e período — os alunos não poderiam estar nas duas ao mesmo tempo.",
     sameCourseSemesterSwap:
       'Não é possível mover: para liberar esse horário, "{{displaced}}" precisaria ir para o horário atual desta aula — mas lá já tem "{{blocking}}", do mesmo curso e período.',
+    sameTurma:
+      "Esse horário já tem outra aula da mesma turma — os alunos não poderiam estar nas duas ao mesmo tempo.",
+    sameTurmaSwap:
+      'Não é possível mover: para liberar esse horário, "{{displaced}}" precisaria ir para o horário atual desta aula — mas lá já tem "{{blocking}}", da mesma turma.',
     couldNotSwap: "Não foi possível trocar essas aulas — já existe um conflito nesse horário.",
     conflictsWithSchedule: "Essa ação conflita com algo que já está na grade. Atualize a página e tente novamente.",
   },

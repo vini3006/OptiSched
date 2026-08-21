@@ -1,7 +1,7 @@
 export default {
   pageTitle: "Turmas",
-  pageSubtitleSuperAdmin: "Gerencie séries, turmas, disciplinas e semestres de cada instituição.",
-  pageSubtitleAdmin: "Gerencie séries, turmas, disciplinas e semestres da instituição selecionada.",
+  pageSubtitleSuperAdmin: "Gerencie séries, turmas, disciplinas e anos letivos de cada instituição.",
+  pageSubtitleAdmin: "Gerencie séries, turmas, disciplinas e anos letivos da instituição selecionada.",
   tabSeries: "Séries",
   tabTurmas: "Turmas",
   tabDisciplinas: "Disciplinas",

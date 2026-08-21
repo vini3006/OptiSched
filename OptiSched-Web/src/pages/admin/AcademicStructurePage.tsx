@@ -864,6 +864,7 @@ export function SubjectsTab({ institutionId }: { institutionId: number }) {
 export function SemestersGroupedByInstitution() {
   const { t } = useTranslation("adminAcademicStructure");
   const { institutionMode } = useInstitutionMode();
+  const isSchoolMode = institutionMode === "SCHOOL";
   const { institutions, itemsByInstitution: semestersByInstitution, isLoading } =
     useGroupedByInstitution("semesters", listSemesters, institutionMode);
   const [viewingInstitutionId, setViewingInstitutionId] = useState<number | null>(null);
@@ -876,7 +877,9 @@ export function SemestersGroupedByInstitution() {
           <TableHeader>
             <TableRow>
               <TableHead>{t("columnInstitution")}</TableHead>
-              <TableHead>{t("semesters.columnHeader")}</TableHead>
+              <TableHead>
+                {isSchoolMode ? t("semesters.school.columnHeader") : t("semesters.columnHeader")}
+              </TableHead>
               <TableHead className="text-right">{t("columnActions")}</TableHead>
             </TableRow>
           </TableHeader>

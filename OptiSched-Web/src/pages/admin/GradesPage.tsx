@@ -125,16 +125,17 @@ function entryGroupLabel(
  */
 function translateScheduleEntryError(
   t: (key: string, options?: Record<string, string>) => string,
-  message: string | undefined
+  message: string | undefined,
+  isSchool: boolean
 ): string {
   if (!message) return t("error.generic");
 
   if (message.includes("swapping would place")) {
     const [, displaced, blocking] = message.match(/"([^"]+)".*"([^"]+)"/) ?? [];
     if (displaced && blocking) {
-      return t("error.sameCourseSemesterSwap", { displaced, blocking });
+      return t(isSchool ? "error.sameTurmaSwap" : "error.sameCourseSemesterSwap", { displaced, blocking });
     }
-    return t("error.sameCourseSemester");
+    return t(isSchool ? "error.sameTurma" : "error.sameCourseSemester");
   }
   if (message.includes("is not qualified to teach")) {
     return t("error.notQualified");
@@ -161,7 +162,7 @@ function translateScheduleEntryError(
     return t("error.occupiedByDifferentClasses");
   }
   if (message.includes("same course and semester")) {
-    return t("error.sameCourseSemester");
+    return t(isSchool ? "error.sameTurma" : "error.sameCourseSemester");
   }
   if (message.includes("Could not swap")) {
     return t("error.couldNotSwap");
@@ -177,10 +178,19 @@ export function GradesPage() {
   const { t } = useTranslation("adminGrades");
   const { selectedInstitutionId } = useSelectedInstitution();
 
+  const { data: institution } = useQuery({
+    queryKey: ["institution", selectedInstitutionId],
+    queryFn: () => getInstitution(selectedInstitutionId as number),
+    enabled: selectedInstitutionId !== null,
+  });
+  const isSchool = institution?.type === "SCHOOL";
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-primary">{t("title")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {isSchool ? t("subtitleSchool") : t("subtitle")}
+      </p>
 
       {selectedInstitutionId ? (
         <GradesContent institutionId={selectedInstitutionId} />
@@ -329,7 +339,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
     onError: (error) => {
       setEntryActionError(
         isAxiosError(error) && error.response?.data?.message
-          ? translateScheduleEntryError(t, error.response.data.message)
+          ? translateScheduleEntryError(t, error.response.data.message, isSchool)
           : t("deleteEntryError")
       );
     },
@@ -344,7 +354,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
     onError: (error) => {
       setMoveErrorMessage(
         isAxiosError(error) && error.response?.data?.message
-          ? translateScheduleEntryError(t, error.response.data.message)
+          ? translateScheduleEntryError(t, error.response.data.message, isSchool)
           : t("moveEntryError")
       );
     },
@@ -367,7 +377,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       await updateEntryMutation.mutateAsync(values);
     } catch (error) {
       if (isAxiosError(error) && error.response?.data?.message) {
-        setEntryFormError(translateScheduleEntryError(t, error.response.data.message));
+        setEntryFormError(translateScheduleEntryError(t, error.response.data.message, isSchool));
       } else {
         setEntryFormError(t("saveEntryChangesError"));
       }
