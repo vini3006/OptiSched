@@ -1,0 +1,44 @@
+name: Warm NVD cache
+
+on:
+  schedule:
+    # Runs twice a week so the cache never sits idle long enough to hit
+    # GitHub's 7-day inactivity eviction — if it did, the next ci.yml run's
+    # "Dependency vulnerability scan" step would have to do a full ~380k
+    # record NVD resync from scratch (observed: still running after 58min,
+    # eventually cancelled) instead of a quick incremental delta.
+    - cron: "0 3 * * 1,4"
+  workflow_dispatch:
+
+jobs:
+  warm-nvd-cache:
+    name: Warm OWASP Dependency-Check NVD cache
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OptiSched-API
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Cache OWASP Dependency-Check NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: dependency-check-nvd-${{ github.run_id }}
+          restore-keys: |
+            dependency-check-nvd-
+
+      - name: Update NVD data only (no full analysis)
+        # update-only just refreshes the local NVD database, it skips the
+        # artifact analysis that "check" does in ci.yml — enough to keep the
+        # cache warm and fast for the real CI run.
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: mvn -B org.owasp:dependency-check-maven:update-only

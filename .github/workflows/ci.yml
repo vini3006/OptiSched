@@ -9,6 +9,12 @@ jobs:
   api:
     name: API (Java)
     runs-on: ubuntu-latest
+    # Default GH Actions timeout is 360min. If the NVD cache below ever goes
+    # cold again (e.g. nvd-cache-warm.yml stops running), the dependency
+    # scan falls back to a full ~380k-record resync — observed taking over
+    # an hour before someone manually cancelled it. Fail fast and loud
+    # instead of hanging silently mid-deploy.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: OptiSched-API
