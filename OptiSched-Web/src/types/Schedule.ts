@@ -36,5 +36,6 @@ export type ScheduleGenerationOptions = {
   preferredShift: PreferredShift | null;
   preferredShiftWeight: number | null;
   courseId: number | null;
+  turmaId: number | null;
   solverTimeLimitSeconds: number | null;
 };

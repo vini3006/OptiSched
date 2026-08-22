@@ -13,6 +13,7 @@ export const generateScheduleSchema = z.object({
   preferredShift: z.enum(["MORNING", "AFTERNOON", "EVENING"]),
   preferredShiftWeight: z.number().min(0).max(10),
   courseId: z.number().int().positive().nullable(),
+  turmaId: z.number().int().positive().nullable(),
   solverTimeLimitSeconds: z.number().min(5).max(300).nullable(),
 });
 

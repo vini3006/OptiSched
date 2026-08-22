@@ -424,6 +424,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       preferredShift: "MORNING",
       preferredShiftWeight: 5,
       courseId: null,
+      turmaId: null,
       solverTimeLimitSeconds: null,
     },
   });
@@ -436,6 +437,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
   const preferredShift = watch("preferredShift");
   const preferredShiftWeight = watch("preferredShiftWeight");
   const generateCourseId = watch("courseId");
+  const generateTurmaId = watch("turmaId");
   const solverTimeLimitSeconds = watch("solverTimeLimitSeconds");
 
   const generateMutation = useMutation({
@@ -450,6 +452,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
           preferredShift: values.preferShift ? values.preferredShift : null,
           preferredShiftWeight: values.preferShift ? values.preferredShiftWeight : null,
           courseId: values.courseId,
+          turmaId: values.turmaId,
           solverTimeLimitSeconds: values.solverTimeLimitSeconds,
         },
         institutionId
@@ -503,6 +506,7 @@ function GradesContent({ institutionId }: { institutionId: number }) {
       preferredShift: "MORNING",
       preferredShiftWeight: 5,
       courseId: null,
+      turmaId: null,
       solverTimeLimitSeconds: null,
     });
     setGenerateOpen(true);
@@ -759,6 +763,35 @@ function GradesContent({ institutionId }: { institutionId: number }) {
                       {courses?.map((c) => (
                         <SelectItem key={c.id} value={String(c.id)}>
                           {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+
+              {isSchool && (
+                <Field>
+                  <FieldLabel htmlFor="generate-turma">{t("generateTurmaLabel")}</FieldLabel>
+                  <p className="text-xs text-muted-foreground">{t("generateTurmaDescription")}</p>
+                  <Select
+                    value={generateTurmaId !== null ? String(generateTurmaId) : "ALL"}
+                    onValueChange={(value) => setValue("turmaId", value === "ALL" ? null : Number(value))}
+                  >
+                    <SelectTrigger id="generate-turma" className="mt-1 w-full">
+                      <SelectValue placeholder={t("generateTurmaAllOption")}>
+                        {(value: string) =>
+                          value === "ALL"
+                            ? t("generateTurmaAllOption")
+                            : (turmas?.find((tu) => String(tu.id) === value)?.name ?? value)
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+                      <SelectItem value="ALL">{t("generateTurmaAllOption")}</SelectItem>
+                      {turmas?.map((tu) => (
+                        <SelectItem key={tu.id} value={String(tu.id)}>
+                          {tu.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

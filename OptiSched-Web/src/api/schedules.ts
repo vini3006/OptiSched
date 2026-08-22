@@ -53,6 +53,7 @@ export async function generateSchedule(
       preferredShift: options.preferredShift,
       preferredShiftWeight: options.preferredShiftWeight,
       courseId: options.courseId,
+      turmaId: options.turmaId,
       solverTimeLimitSeconds: options.solverTimeLimitSeconds,
     },
     { params: { semesterId, institutionIdSuperAdmin: institutionId } }

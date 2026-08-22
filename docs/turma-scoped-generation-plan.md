@@ -36,3 +36,5 @@
 Depois que este plano for executado, a próxima frente é uma **versão de demo do OptiSched que não persiste nada no banco** — toda a informação (instituição, cursos/turmas, disciplinas, professores, grade gerada etc.) vive só dentro da aplicação (provavelmente estado em memória/sessão do navegador, a definir), sem gravar no Postgres. Objetivo declarado pelo usuário: permitir demonstração/teste sem tocar em dados reais.
 
 Ainda não sabemos o mecanismo exato (client-side puro vs. backend com storage efêmero vs. outra abordagem) — isso fica pra ser desenhado com uma exploração própria do código quando essa fase for aberta, não deve ser assumido a partir daqui. Não começar essa investigação agora; é só um marcador de próximo passo.
+
+**Resolvido em `docs/demo-sandbox-plan.md`** (2026-08-21): decisão foi backend com storage efêmero (instituição real no Postgres, `expiresAt` de 2h + job de limpeza), não client-side puro.

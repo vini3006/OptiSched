@@ -68,6 +68,10 @@ export default {
   generateCourseDescription:
     "Restrinja a geração a um único curso — as grades já ativas dos outros cursos são respeitadas e não são alteradas.",
   generateCourseAllOption: "Grade completa (todos os cursos)",
+  generateTurmaLabel: "Turma",
+  generateTurmaDescription:
+    "Restrinja a geração a uma única turma — as grades já ativas das outras turmas são respeitadas e não são alteradas.",
+  generateTurmaAllOption: "Grade completa (todas as turmas)",
   solverTimeLimitLabel: "Limite de tempo do otimizador (opcional)",
   solverTimeLimitDescription:
     "Em segundos, entre 5 e 300. Deixe em branco para usar o padrão (45s) — grades maiores podem se beneficiar de mais tempo.",
