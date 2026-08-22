@@ -254,7 +254,16 @@ class ScheduleGenerationServiceTest {
         when(scheduleRepository.findAllBySemesterIdAndStatusAndInstitutionId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID))
                 .thenReturn(List.of(otherActiveSchedule));
 
+        Subject otherSubject = new Subject();
+        otherSubject.setId(160L);
+        SubjectOffering otherOffering = new SubjectOffering();
+        otherOffering.setId(601L);
+        otherOffering.setSubject(otherSubject);
+        otherOffering.setTurma(turmaEntity(901L));
+        otherOffering.setExpectedStudents(30);
+
         ScheduleEntry otherEntry = new ScheduleEntry();
+        otherEntry.setSubjectOffering(otherOffering);
         when(scheduleEntryRepository.findByScheduleId(77L)).thenReturn(List.of(otherEntry));
         when(requestMapper.toLockedAssignmentInput(otherEntry))
                 .thenReturn(new LockedAssignmentInput(601L, 11L, 21L, 31L));
@@ -262,8 +271,13 @@ class ScheduleGenerationServiceTest {
         when(requestMapper.buildRequest(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mock(OptimizationRequest.class));
 
+        // The solver echoes the borrowed locked assignment (offering 601,
+        // turma 901) back in the solution too, since it became a fixed x
+        // variable in the model — the service must not persist it as part
+        // of this (turma 900-scoped) schedule.
         OptimizationResponse response = new OptimizationResponse(List.of(
-                new ScheduleEntryOutput(10L, 600L, 20L, 30L)
+                new ScheduleEntryOutput(10L, 600L, 20L, 30L),
+                new ScheduleEntryOutput(11L, 601L, 21L, 31L)
         ));
         when(optimizerClient.optimize(any())).thenReturn(response);
 
@@ -279,9 +293,25 @@ class ScheduleGenerationServiceTest {
         service.generateSchedule(SEMESTER_ID, INSTITUTION_ID, scopedOptions);
 
         @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ScheduleEntry>> savedEntriesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(scheduleEntryRepository).saveAll(savedEntriesCaptor.capture());
+        assertThat(savedEntriesCaptor.getValue())
+                .extracting(e -> e.getSubjectOffering().getId())
+                .containsExactly(600L);
+
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<List<LockedAssignmentInput>> lockedCaptor = ArgumentCaptor.forClass(List.class);
-        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), lockedCaptor.capture(), any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<SubjectOffering>> offeringsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(requestMapper).buildRequest(any(), offeringsCaptor.capture(), any(), any(), any(), any(), lockedCaptor.capture(), any());
 
         assertThat(lockedCaptor.getValue()).containsExactly(new LockedAssignmentInput(601L, 11L, 21L, 31L));
+
+        // The optimizer needs offering 601's own data (qualifications,
+        // availability, capacity) to validate the locked assignment above —
+        // even though it belongs to turma 901, not the scoped turma 900.
+        assertThat(offeringsCaptor.getValue())
+                .extracting(SubjectOffering::getId)
+                .containsExactlyInAnyOrder(600L, 601L);
     }
 }

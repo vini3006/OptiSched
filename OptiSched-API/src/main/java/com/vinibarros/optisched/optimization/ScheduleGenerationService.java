@@ -92,10 +92,10 @@ public class ScheduleGenerationService {
                         .orElseThrow(() -> new ResourceNotFoundException("Turma", options.turmaId()))
                 : null;
 
-        List<SubjectOffering> offerings = subjectOfferingRepository.findBySemesterId(semesterId).stream()
+        List<SubjectOffering> offerings = new java.util.ArrayList<>(subjectOfferingRepository.findBySemesterId(semesterId).stream()
                 .filter(o -> course == null || (o.getCourse() != null && o.getCourse().getId().equals(course.getId())))
                 .filter(o -> turma == null || (o.getTurma() != null && o.getTurma().getId().equals(turma.getId())))
-                .toList();
+                .toList());
 
         if (offerings.isEmpty()) {
             throw new InvalidScheduleException(
@@ -147,13 +147,34 @@ public class ScheduleGenerationService {
         // professor/sala já ocupado por outro curso/turma. Sem escopo
         // (courseId e turmaId nulos, grade completa), não existem "outras
         // grades" — tudo está sendo gerado junto, como sempre foi.
+        // Ids das offerings do escopo original, antes de eventuais offerings
+        // "emprestadas" de outros cursos/turmas serem adicionadas abaixo só
+        // para validação — usado depois para não persistir/notificar aulas
+        // que não pertencem a esta geração.
+        java.util.Set<Long> ownOfferingIds = offerings.stream().map(SubjectOffering::getId).collect(Collectors.toSet());
+
         if (course != null || turma != null) {
             Long previousActiveId = previousActive != null ? previousActive.getId() : null;
-            scheduleRepository.findAllBySemesterIdAndStatusAndInstitutionId(semesterId, ScheduleStatus.ACTIVE, institutionId).stream()
+            List<ScheduleEntry> otherActiveEntries = scheduleRepository.findAllBySemesterIdAndStatusAndInstitutionId(semesterId, ScheduleStatus.ACTIVE, institutionId).stream()
                     .filter(s -> !s.getId().equals(previousActiveId))
                     .flatMap(s -> scheduleEntryRepository.findByScheduleId(s.getId()).stream())
-                    .map(requestMapper::toLockedAssignmentInput)
-                    .forEach(lockedAssignments::add);
+                    .toList();
+
+            otherActiveEntries.stream().map(requestMapper::toLockedAssignmentInput).forEach(lockedAssignments::add);
+
+            // Essas aulas pertencem a outro curso/turma, então suas offerings
+            // não estão na lista `offerings` (escopada) acima — mas o
+            // otimizador só consegue validar as atribuições fixas que
+            // acabaram de entrar em lockedAssignments se a offering
+            // correspondente estiver no request (senão rejeita como
+            // "no longer qualified/available" mesmo sendo válida). Elas NÃO
+            // entram em ownOfferingIds: são só emprestadas para a validação,
+            // a grade resultante desta geração não deve incluí-las.
+            java.util.Set<Long> seenOfferingIds = new java.util.HashSet<>(ownOfferingIds);
+            otherActiveEntries.stream()
+                    .map(ScheduleEntry::getSubjectOffering)
+                    .filter(o -> seenOfferingIds.add(o.getId()))
+                    .forEach(offerings::add);
         }
 
         OptimizationRequest request = requestMapper.buildRequest(
@@ -183,7 +204,15 @@ public class ScheduleGenerationService {
         Schedule saved = scheduleRepository.save(schedule);
         ScheduleResponse scheduleResponse = scheduleMapper.toResponse(saved);
 
-        List<ScheduleEntry> entries = response.scheduleEntries().stream().map(output -> {
+        // O otimizador também devolve as aulas emprestadas de outros
+        // cursos/turmas (adicionadas acima só para validar os locks) na
+        // solução, já que elas viraram atribuições fixas dentro do modelo —
+        // mas não pertencem a esta geração, então ficam de fora daqui.
+        List<ScheduleEntryOutput> ownEntries = response.scheduleEntries().stream()
+                .filter(output -> ownOfferingIds.contains(output.subjectOfferingId()))
+                .toList();
+
+        List<ScheduleEntry> entries = ownEntries.stream().map(output -> {
             ScheduleEntry entry = new ScheduleEntry();
             entry.setSchedule(saved);
             entry.setProfessor(professorRepository.getReferenceById(output.professorId()));
@@ -196,7 +225,7 @@ public class ScheduleGenerationService {
 
         scheduleEntryRepository.saveAll(entries);
 
-        notifyAffectedProfessors(response.scheduleEntries(), professors);
+        notifyAffectedProfessors(ownEntries, professors);
 
         return scheduleResponse;
     }
