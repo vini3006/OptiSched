@@ -4,7 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vinibarros.optisched.dto.request.DemoInstitutionRequest;
 import com.vinibarros.optisched.entity.Institution;
 import com.vinibarros.optisched.enums.InstitutionType;
+import com.vinibarros.optisched.repository.AvailabilityRepository;
+import com.vinibarros.optisched.repository.ClassroomRepository;
+import com.vinibarros.optisched.repository.CourseRepository;
 import com.vinibarros.optisched.repository.InstitutionRepository;
+import com.vinibarros.optisched.repository.ProfessorQualificationRepository;
+import com.vinibarros.optisched.repository.ProfessorRepository;
+import com.vinibarros.optisched.repository.SemesterRepository;
+import com.vinibarros.optisched.repository.SerieRepository;
+import com.vinibarros.optisched.repository.SerieSubjectRepository;
+import com.vinibarros.optisched.repository.SubjectOfferingRepository;
+import com.vinibarros.optisched.repository.SubjectRepository;
+import com.vinibarros.optisched.repository.TimeSlotRepository;
+import com.vinibarros.optisched.repository.TurmaRepository;
 import com.vinibarros.optisched.support.AbstractIntegrationTest;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -42,6 +54,42 @@ class DemoIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private SubjectRepository subjectRepository;
+
+    @Autowired
+    private ClassroomRepository classroomRepository;
+
+    @Autowired
+    private TimeSlotRepository timeSlotRepository;
+
+    @Autowired
+    private SemesterRepository semesterRepository;
+
+    @Autowired
+    private ProfessorRepository professorRepository;
+
+    @Autowired
+    private ProfessorQualificationRepository professorQualificationRepository;
+
+    @Autowired
+    private AvailabilityRepository availabilityRepository;
+
+    @Autowired
+    private SubjectOfferingRepository subjectOfferingRepository;
+
+    @Autowired
+    private SerieRepository serieRepository;
+
+    @Autowired
+    private TurmaRepository turmaRepository;
+
+    @Autowired
+    private SerieSubjectRepository serieSubjectRepository;
 
     private static RequestPostProcessor fromIp(String ip) {
         return request -> {
@@ -105,5 +153,55 @@ class DemoIntegrationTest extends AbstractIntegrationTest {
         // be proven against a real tenant-scoped endpoint instead.
         mockMvc.perform(get("/institutions/" + institutionId).cookie(accessToken))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createDemoInstitution_university_seedsExpectedRowCounts() throws Exception {
+        MvcResult result = mockMvc.perform(post("/demo/institutions")
+                        .with(fromIp("10.20.1.5"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DemoInstitutionRequest(InstitutionType.UNIVERSITY))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Long institutionId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("institutionId").asLong();
+
+        assertThat(semesterRepository.findAllByInstitutionId(institutionId)).hasSize(1);
+        assertThat(subjectRepository.findAllByInstitutionId(institutionId)).hasSize(6);
+        assertThat(classroomRepository.findAllByInstitutionId(institutionId)).hasSize(3);
+        assertThat(timeSlotRepository.findAllByInstitutionId(institutionId)).hasSize(20);
+        assertThat(courseRepository.findAllByInstitutionId(institutionId)).hasSize(2);
+        assertThat(subjectOfferingRepository.findAllByInstitutionId(institutionId)).hasSize(4);
+        assertThat(professorRepository.findAllByInstitutionId(institutionId)).hasSize(4);
+        assertThat(professorQualificationRepository.findAllByInstitutionId(institutionId)).hasSize(9);
+        assertThat(availabilityRepository.findAllByInstitutionId(institutionId)).hasSize(4 * 16);
+    }
+
+    @Test
+    void createDemoInstitution_school_seedsExpectedRowCounts() throws Exception {
+        MvcResult result = mockMvc.perform(post("/demo/institutions")
+                        .with(fromIp("10.20.1.6"))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DemoInstitutionRequest(InstitutionType.SCHOOL))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Long institutionId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("institutionId").asLong();
+
+        assertThat(semesterRepository.findAllByInstitutionId(institutionId)).hasSize(1);
+        assertThat(subjectRepository.findAllByInstitutionId(institutionId)).hasSize(6);
+        assertThat(classroomRepository.findAllByInstitutionId(institutionId)).hasSize(3);
+        assertThat(timeSlotRepository.findAllByInstitutionId(institutionId)).hasSize(20);
+        assertThat(serieRepository.findAllByInstitutionId(institutionId)).hasSize(2);
+        assertThat(turmaRepository.findAllByInstitutionId(institutionId)).hasSize(3);
+        assertThat(serieSubjectRepository.findAllByInstitutionId(institutionId)).hasSize(6);
+        assertThat(professorRepository.findAllByInstitutionId(institutionId)).hasSize(4);
+        assertThat(professorQualificationRepository.findAllByInstitutionId(institutionId)).hasSize(9);
+        assertThat(availabilityRepository.findAllByInstitutionId(institutionId)).hasSize(4 * 16);
+        // School-mode offerings are auto-materialized by TurmaOfferingSyncService
+        // right before generation, never created directly by the seed.
+        assertThat(subjectOfferingRepository.findAllByInstitutionId(institutionId)).isEmpty();
     }
 }

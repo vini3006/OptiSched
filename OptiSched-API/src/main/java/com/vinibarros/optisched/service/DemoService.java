@@ -13,7 +13,6 @@ import com.vinibarros.optisched.repository.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -50,7 +49,15 @@ public class DemoService {
         this.demoSeedService = demoSeedService;
     }
 
-    @Transactional
+    /**
+     * Deliberately NOT @Transactional at this level — the institution+admin
+     * creation below (institutionRepository.save/userRepository.save, each
+     * transactional in its own right via Spring Data JPA) has to actually
+     * commit before demoSeedService runs, or every seeded row would join
+     * this method's transaction by propagation and one failed insert would
+     * roll back the whole institution, admin included. See DemoSeedService's
+     * class javadoc for the full reasoning.
+     */
     public AuthResponse createDemoInstitution(InstitutionType type, HttpServletResponse response, AuthCookieService authCookieService) {
         Institution institution = new Institution();
         institution.setName(demoInstitutionName(type));
