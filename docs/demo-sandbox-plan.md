@@ -78,12 +78,15 @@ O OptiSched agora atende universidades e escolas, mas a landing page ainda vende
 
 **Bug real encontrado e corrigido durante a implementação:** `institution.isDemo() ? guardrail.capSolverTimeLimit(...) : options.solverTimeLimitSeconds()` — Java escolhe o tipo da expressão ternária pelo operando *primitivo* quando um dos dois é primitivo, então se `capSolverTimeLimit` retornasse `double` (primitivo), o outro ramo (`Double`, que pode ser `null` quando o cliente não manda `solverTimeLimitSeconds`) seria auto-unboxed e lançaria `NullPointerException` sempre que uma instituição **não-demo** simplesmente não informasse esse campo opcional — quebraria a geração de grade para todo mundo, não só para demos. Descoberto pelos 3 testes pré-existentes do `ScheduleGenerationServiceTest` (que não passam `solverTimeLimitSeconds`) falhando com NPE assim que o guardrail foi acoplado. Corrigido fazendo `capSolverTimeLimit` retornar `Double` (boxed) em vez de `double`.
 
-## Fase 4 — Backend: expiração e limpeza
+## Fase 4 — Backend: expiração e limpeza — **DONE (2026-08-26)**
 
-- [ ] `OptischedApiApplication.java`: `@EnableScheduling` (primeiro uso no repo).
-- [ ] `service/DemoCleanupJob.java` (novo): `@Component`, `@Scheduled(fixedRate = ...)` a cada 15-30min (é higiene de armazenamento, não controle de acesso — isso já é garantido de graça pelo `expiresAt` do `InstitutionFilter`), busca `is_demo=true AND expires_at < now()` (usa o índice da Fase 1) e chama `institutionService.delete(id)` por linha, com try/catch por linha pra uma falha não parar o lote.
-- [ ] `repository/InstitutionRepository.java`: novo método derivado `findByIsDemoTrueAndExpiresAtBefore(LocalDateTime cutoff)`.
-- [ ] Teste: semear uma instituição demo com `expiresAt` no passado, chamar o método do job diretamente (sem esperar o scheduler), assertar que a instituição e uma linha filha (ex. um curso semeado) sumiram.
+- [x] `OptischedApiApplication.java`: `@EnableScheduling` (primeiro uso no repo).
+- [x] `service/DemoCleanupJob.java` (novo): `@Component`, `@Scheduled(fixedRate = 20min)`, busca `is_demo=true AND expires_at < now()` (usa o índice `idx_institution_is_demo_expires_at` da Fase 1 via `findByDemoTrueAndExpiresAtBefore` — note o nome do campo Java é `demo`, não `isDemo`, ver nota da Fase 1) e chama `institutionService.delete(id)` por linha, com try/catch por linha (loga e segue pra próxima) pra uma falha não parar o lote.
+- [x] `repository/InstitutionRepository.java`: `findByDemoTrueAndExpiresAtBefore(LocalDateTime cutoff)` (nome corrigido de `findByIsDemoTrueAndExpiresAtBefore` do plano original — Spring Data deriva o nome da propriedade JPA do campo `demo`, não do getter Lombok `isDemo()`).
+- [x] `DemoCleanupJobTest.java` (novo, `@AutoConfigureMockMvc @Transactional extends AbstractIntegrationTest`): 2 testes — instituição demo expirada tem ela mesma e um curso semeado removidos (cascade delete real, confirmado); instituição demo não-expirada é preservada.
+- Suite completa: 175/175 verdes.
+
+**Achado só-de-teste (não afeta produção):** rodar seed→mutação de `expiresAt`→delete tudo dentro da MESMA transação/persistence-context de um teste (artefato do `@Transactional` de teste, que mantém uma única sessão Hibernate viva do início ao fim) faz o Hibernate lançar um `TransientObjectException` espúrio ao tentar reconciliar as coleções bidirecionais `Professor.qualifications`/`availabilities` (`cascade=ALL, orphanRemoval=true`) no mesmo flush que remove a `Institution` que elas referenciam — mesmo essas coleções nunca sendo tocadas diretamente pelo código de seed. `DemoCleanupJobTest` chama `entityManager.clear()` entre a fase de seed e a fase de limpeza pra evitar isso, simulando o que já acontece de graça em produção (cada request HTTP recebe seu próprio `EntityManager`, então o job de limpeza — rodando minutos/horas depois, num scheduler tick separado — nunca compartilha sessão com o request que criou a instituição).
 
 ## Fase 5 — Frontend: banner do hero + CTA
 
