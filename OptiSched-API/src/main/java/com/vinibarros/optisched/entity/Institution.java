@@ -44,5 +44,8 @@ public class Institution extends Auditable {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private InstitutionType type = InstitutionType.UNIVERSITY;
+
+    @Column(name = "is_demo", nullable = false)
+    private boolean demo = false;
 }
 

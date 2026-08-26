@@ -40,6 +40,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final Limit[] LIMITS = {
             new Limit("/auth/login", 5),
             new Limit("/auth/forgot-password", 3),
+            new Limit("/demo/institutions", 3),
     };
 
     private final StringRedisTemplate redisTemplate;

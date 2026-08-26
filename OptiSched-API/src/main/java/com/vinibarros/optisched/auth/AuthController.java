@@ -5,7 +5,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -21,41 +20,33 @@ import java.util.Arrays;
 @RequestMapping("/auth")
 public class AuthController {
 
-    private static final String COOKIE_NAME = "access_token";
-
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
     private final JwtDecoder jwtDecoder;
     private final JwtBlacklistService jwtBlacklistService;
-
-    @Value("${app.cookie.secure}")
-    private boolean cookieSecure;
+    private final AuthCookieService authCookieService;
 
     public AuthController(
             AuthService authService,
             PasswordResetService passwordResetService,
             JwtDecoder jwtDecoder,
-            JwtBlacklistService jwtBlacklistService
+            JwtBlacklistService jwtBlacklistService,
+            AuthCookieService authCookieService
     ) {
         this.authService = authService;
         this.passwordResetService = passwordResetService;
         this.jwtDecoder = jwtDecoder;
         this.jwtBlacklistService = jwtBlacklistService;
+        this.authCookieService = authCookieService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request, HttpServletResponse response) {
         LoginResult result = authService.login(request);
 
-        Cookie cookie = new Cookie(COOKIE_NAME, result.token());
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieSecure);
-        cookie.setPath("/");
-        cookie.setMaxAge((int) TokenService.EXPIRES_IN_SECONDS);
-        cookie.setAttribute("SameSite", cookieSameSite());
-        response.addCookie(cookie);
+        authCookieService.setAuthCookie(response, result.token());
 
-        AuthResponse body = new AuthResponse(result.userId(), result.email(), result.name(), result.role(), result.institutionId(), result.professorId(), result.institutionType());
+        AuthResponse body = new AuthResponse(result.userId(), result.email(), result.name(), result.role(), result.institutionId(), result.professorId(), result.institutionType(), false);
         return ResponseEntity.ok(body);
     }
 
@@ -63,30 +54,9 @@ public class AuthController {
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         blacklistCurrentToken(request);
 
-        Cookie cookie = new Cookie(COOKIE_NAME, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieSecure);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        cookie.setAttribute("SameSite", cookieSameSite());
-        response.addCookie(cookie);
+        authCookieService.clearAuthCookie(response);
 
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Frontend (Vercel) and API (EC2) live on different registrable domains
-     * in production, making every fetch/XHR call cross-site — browsers only
-     * attach SameSite=Lax cookies to top-level navigations, not JS requests,
-     * so the JWT cookie set on /auth/login would never come back on
-     * subsequent calls. SameSite=None fixes that, but browsers only accept
-     * None on cookies that are also Secure, which is exactly when
-     * cookieSecure is true (production, HTTPS). Locally (dev, HTTP,
-     * cookieSecure=false) frontend and API share the same registrable
-     * domain (just different ports), so Lax already works there.
-     */
-    private String cookieSameSite() {
-        return cookieSecure ? "None" : "Lax";
     }
 
     /**
@@ -105,7 +75,7 @@ public class AuthController {
         }
 
         Arrays.stream(request.getCookies())
-                .filter(c -> COOKIE_NAME.equals(c.getName()))
+                .filter(c -> AuthCookieService.COOKIE_NAME.equals(c.getName()))
                 .findFirst()
                 .map(Cookie::getValue)
                 .filter(token -> !token.isBlank())
@@ -144,8 +114,9 @@ public class AuthController {
         String name = jwt.getClaim("name");
         String email = jwt.getSubject();
         String institutionType = jwt.getClaim("institution_type");
+        boolean isDemo = Boolean.TRUE.equals(jwt.getClaim("is_demo"));
 
-        AuthResponse response = new AuthResponse(userId, email, name, role, institutionId, professorId, institutionType);
+        AuthResponse response = new AuthResponse(userId, email, name, role, institutionId, professorId, institutionType, isDemo);
         return ResponseEntity.ok(response);
     }
 }

@@ -60,7 +60,8 @@ public class AuthService {
                 institutionId,
                 user.getRole().name(),
                 professorId,
-                institutionType
+                institutionType,
+                false
         );
 
         return new LoginResult(

@@ -7,5 +7,6 @@ public record AuthResponse(
         String role,
         Long institutionId,
         Long professorId,
-        String institutionType
+        String institutionType,
+        boolean isDemo
 ) {}
