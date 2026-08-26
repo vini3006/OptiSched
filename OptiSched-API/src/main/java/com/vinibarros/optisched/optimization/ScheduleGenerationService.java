@@ -40,6 +40,7 @@ public class ScheduleGenerationService {
     private final OptimizationRequestMapper requestMapper;
     private final OptimizerClient optimizerClient;
     private final EmailSender emailSender;
+    private final DemoGenerationGuardrail demoGenerationGuardrail;
 
     public ScheduleGenerationService(
             ProfessorRepository professorRepository,
@@ -56,7 +57,8 @@ public class ScheduleGenerationService {
             TurmaOfferingSyncService turmaOfferingSyncService,
             OptimizationRequestMapper requestMapper,
             OptimizerClient optimizerClient,
-            EmailSender emailSender
+            EmailSender emailSender,
+            DemoGenerationGuardrail demoGenerationGuardrail
     ) {
         this.professorRepository = professorRepository;
         this.subjectOfferingRepository = subjectOfferingRepository;
@@ -73,12 +75,20 @@ public class ScheduleGenerationService {
         this.requestMapper = requestMapper;
         this.optimizerClient = optimizerClient;
         this.emailSender = emailSender;
+        this.demoGenerationGuardrail = demoGenerationGuardrail;
     }
 
     @Transactional
     public ScheduleResponse generateSchedule(Long semesterId, Long institutionId, ScheduleGenerationRequest options) {
         Semester semester = semesterRepository.findByIdAndInstitutionId(semesterId, institutionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Semester", semesterId));
+
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
+
+        if (institution.isDemo()) {
+            demoGenerationGuardrail.checkGenerationLimit(institutionId);
+        }
 
         turmaOfferingSyncService.syncOfferings(institutionId, semester);
 
@@ -177,9 +187,13 @@ public class ScheduleGenerationService {
                     .forEach(offerings::add);
         }
 
+        Double solverTimeLimitSeconds = institution.isDemo()
+                ? demoGenerationGuardrail.capSolverTimeLimit(options.solverTimeLimitSeconds())
+                : options.solverTimeLimitSeconds();
+
         OptimizationRequest request = requestMapper.buildRequest(
                 professors, offerings, classrooms, timeSlots, weights, preferredTimeSlotIds, lockedAssignments,
-                options.solverTimeLimitSeconds()
+                solverTimeLimitSeconds
         );
 
         OptimizationResponse response = optimizerClient.optimize(request);
@@ -187,9 +201,6 @@ public class ScheduleGenerationService {
         if (response == null || response.scheduleEntries() == null) {
             throw new NoScheduleEntriesException("The optimizer did not found any feasible entry.");
         }
-
-        Institution institution = institutionRepository.findById(institutionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Institution", institutionId));
 
         if (previousActive != null) {
             previousActive.setStatus(ScheduleStatus.INACTIVE);

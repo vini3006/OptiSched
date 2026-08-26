@@ -68,9 +68,15 @@ O OptiSched agora atende universidades e escolas, mas a landing page ainda vende
 
 > **Não adiar** — landing pública sem isso é risco real de DoS na única EC2 de produção (ver "Achado crítico" no topo).
 
-- [ ] No serviço que chama o otimizador (`ScheduleGenerationService`): antes de chamar `OptimizerClient`, se `institution.isDemo()`, forçar `solverTimeLimitSeconds = Math.min(requested, 15)` no servidor, ignorando o que o cliente mandar além disso.
-- [ ] Contador de chamadas por instituição demo via Redis (mesmo padrão `INCR`+`EXPIRE` do `RateLimitingFilter`, chave `"demo:generate:" + institutionId`), rejeitando após um teto (ex.: 5 gerações) — dimensão diferente do rate limit por IP já existente, pertence ao serviço, não ao filtro global.
-- [ ] Teste: instituição demo pedindo `solverTimeLimitSeconds=300` resolve com o teto de 15s; a N+1-ésima geração é rejeitada.
+**DONE (2026-08-26)**
+
+- [x] Novo `optimization/DemoGenerationGuardrail.java` (`@Component`, não inline no serviço): `capSolverTimeLimit(Double requested)` retorna `Math.min(requested, 15.0)` (ou `15.0` se `requested == null`); `checkGenerationLimit(Long institutionId)` faz o mesmo padrão `INCR`+`EXPIRE` do `RateLimitingFilter` na chave `"demo:generate:" + institutionId`, TTL de 2h (igual ao TTL da própria instituição demo), rejeitando com `DemoGenerationLimitExceededException` (nova, mapeada a 429 no `GlobalExceptionHandler`) acima de 5 gerações.
+- [x] `ScheduleGenerationService.generateSchedule`: a busca de `Institution` foi antecipada pra logo após a busca do `Semester` (antes ficava só perto do fim, depois de já ter chamado o otimizador) — necessário pra checar `institution.isDemo()` antes de gastar qualquer trabalho. Se demo: chama `checkGenerationLimit` antes de tudo (inclusive antes do `turmaOfferingSyncService.syncOfferings`), e usa `capSolverTimeLimit(options.solverTimeLimitSeconds())` no lugar do valor cru do cliente ao montar o `OptimizationRequest`.
+- [x] `ScheduleGenerationServiceTest` (unit, Mockito) ganhou 2 testes: instituição demo pedindo 300s recebe 15s no request montado; instituição demo com o guardrail simulando limite excedido é rejeitada **antes** de chamar `optimizerClient` ou `turmaOfferingSyncService`.
+- [x] Novo `DemoGenerationGuardrailTest` (Redis real via Testcontainers, mesmo padrão do `RateLimitingFilterTest`) — 6 testes: aceita até o teto, rejeita a N+1-ésima, instituições diferentes não compartilham contador, `capSolverTimeLimit` corta acima do teto/mantém abaixo/usa o teto como default quando null.
+- Suite completa: 173/173 verdes.
+
+**Bug real encontrado e corrigido durante a implementação:** `institution.isDemo() ? guardrail.capSolverTimeLimit(...) : options.solverTimeLimitSeconds()` — Java escolhe o tipo da expressão ternária pelo operando *primitivo* quando um dos dois é primitivo, então se `capSolverTimeLimit` retornasse `double` (primitivo), o outro ramo (`Double`, que pode ser `null` quando o cliente não manda `solverTimeLimitSeconds`) seria auto-unboxed e lançaria `NullPointerException` sempre que uma instituição **não-demo** simplesmente não informasse esse campo opcional — quebraria a geração de grade para todo mundo, não só para demos. Descoberto pelos 3 testes pré-existentes do `ScheduleGenerationServiceTest` (que não passam `solverTimeLimitSeconds`) falhando com NPE assim que o guardrail foi acoplado. Corrigido fazendo `capSolverTimeLimit` retornar `Double` (boxed) em vez de `double`.
 
 ## Fase 4 — Backend: expiração e limpeza
 

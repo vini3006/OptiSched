@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -46,6 +47,7 @@ class ScheduleGenerationServiceTest {
     @Mock private OptimizationRequestMapper requestMapper;
     @Mock private OptimizerClient optimizerClient;
     @Mock private EmailSender emailSender;
+    @Mock private DemoGenerationGuardrail demoGenerationGuardrail;
 
     private ScheduleGenerationService service;
 
@@ -54,7 +56,8 @@ class ScheduleGenerationServiceTest {
         service = new ScheduleGenerationService(
                 professorRepository, subjectOfferingRepository, classroomRepository, timeSlotRepository,
                 semesterRepository, scheduleRepository, new ScheduleMapper(), scheduleEntryRepository,
-                institutionRepository, courseRepository, turmaRepository, turmaOfferingSyncService, requestMapper, optimizerClient, emailSender
+                institutionRepository, courseRepository, turmaRepository, turmaOfferingSyncService, requestMapper, optimizerClient, emailSender,
+                demoGenerationGuardrail
         );
     }
 
@@ -67,6 +70,12 @@ class ScheduleGenerationServiceTest {
     private Institution institution() {
         Institution institution = new Institution();
         institution.setId(INSTITUTION_ID);
+        return institution;
+    }
+
+    private Institution demoInstitution() {
+        Institution institution = institution();
+        institution.setDemo(true);
         return institution;
     }
 
@@ -313,5 +322,53 @@ class ScheduleGenerationServiceTest {
         assertThat(offeringsCaptor.getValue())
                 .extracting(SubjectOffering::getId)
                 .containsExactlyInAnyOrder(600L, 601L);
+    }
+
+    // -------------------- Demo guardrails --------------------
+
+    @Test
+    void demoInstitution_requestingASolverTimeLimitAbove15Seconds_getsItClampedByTheGuardrail() {
+        when(semesterRepository.findByIdAndInstitutionId(SEMESTER_ID, INSTITUTION_ID)).thenReturn(Optional.of(semester()));
+        when(institutionRepository.findById(INSTITUTION_ID)).thenReturn(Optional.of(demoInstitution()));
+        when(subjectOfferingRepository.findBySemesterId(SEMESTER_ID)).thenReturn(List.of(offering()));
+        when(professorRepository.findAllByInstitutionId(INSTITUTION_ID)).thenReturn(List.of(professor()));
+        when(classroomRepository.findAllByInstitutionId(INSTITUTION_ID)).thenReturn(List.of(classroom()));
+        when(timeSlotRepository.findAllByInstitutionId(INSTITUTION_ID)).thenReturn(List.of(timeSlot()));
+        when(scheduleRepository.findBySemesterIdAndStatusAndInstitutionIdAndCourseIdAndTurmaId(SEMESTER_ID, ScheduleStatus.ACTIVE, INSTITUTION_ID, null, null))
+                .thenReturn(null);
+        when(demoGenerationGuardrail.capSolverTimeLimit(300.0)).thenReturn(15.0);
+
+        when(requestMapper.buildRequest(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(mock(OptimizationRequest.class));
+        OptimizationResponse response = new OptimizationResponse(List.of(new ScheduleEntryOutput(10L, 500L, 20L, 30L)));
+        when(optimizerClient.optimize(any())).thenReturn(response);
+        when(professorRepository.getReferenceById(10L)).thenReturn(professor());
+        when(subjectOfferingRepository.getReferenceById(500L)).thenReturn(offering());
+        when(classroomRepository.getReferenceById(20L)).thenReturn(classroom());
+        when(timeSlotRepository.getReferenceById(30L)).thenReturn(timeSlot());
+        when(scheduleRepository.countBySemesterIdAndInstitutionId(SEMESTER_ID, INSTITUTION_ID)).thenReturn(0L);
+        when(scheduleRepository.save(any(Schedule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ScheduleGenerationRequest requestWith300s = new ScheduleGenerationRequest(5.0, 5.0, 0.0, 5.0, null, null, null, 300.0, null);
+        service.generateSchedule(SEMESTER_ID, INSTITUTION_ID, requestWith300s);
+
+        ArgumentCaptor<Double> timeLimitCaptor = ArgumentCaptor.forClass(Double.class);
+        verify(requestMapper).buildRequest(any(), any(), any(), any(), any(), any(), any(), timeLimitCaptor.capture());
+        assertThat(timeLimitCaptor.getValue()).isEqualTo(15.0);
+        verify(demoGenerationGuardrail).checkGenerationLimit(INSTITUTION_ID);
+    }
+
+    @Test
+    void demoInstitution_pastItsGenerationLimit_isRejectedBeforeCallingTheOptimizer() {
+        when(semesterRepository.findByIdAndInstitutionId(SEMESTER_ID, INSTITUTION_ID)).thenReturn(Optional.of(semester()));
+        when(institutionRepository.findById(INSTITUTION_ID)).thenReturn(Optional.of(demoInstitution()));
+        doThrow(new com.vinibarros.optisched.exception.DemoGenerationLimitExceededException("limit reached"))
+                .when(demoGenerationGuardrail).checkGenerationLimit(INSTITUTION_ID);
+
+        assertThatThrownBy(() -> service.generateSchedule(SEMESTER_ID, INSTITUTION_ID, options()))
+                .isInstanceOf(com.vinibarros.optisched.exception.DemoGenerationLimitExceededException.class);
+
+        verifyNoInteractions(optimizerClient);
+        verify(turmaOfferingSyncService, never()).syncOfferings(any(), any());
     }
 }

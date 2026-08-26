@@ -115,6 +115,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(DemoGenerationLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleDemoGenerationLimitExceeded(DemoGenerationLimitExceededException ex) {
+        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+    }
+
     /**
      * Safety net for any DB constraint violation that slips past a service's
      * own validation (or a service that has none for that specific case) —
