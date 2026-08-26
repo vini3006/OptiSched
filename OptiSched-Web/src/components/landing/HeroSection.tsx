@@ -1,6 +1,6 @@
 import { ShieldCheck, Sparkles } from "lucide-react";
 
-import heroSchedule from "@/assets/images/hero-schedule.webp";
+import { HeroBanner } from "@/components/landing/HeroBanner";
 
 export function HeroSection() {
   return (
@@ -34,6 +34,15 @@ export function HeroSection() {
               Saiba Mais
             </a>
           </div>
+          {/* Plain <a>, not a router Link — /demo doesn't exist as a route
+              yet (lands in a later phase of docs/demo-sandbox-plan.md's
+              Fase 6), same as the two CTAs above which are anchor links too. */}
+          <a
+            href="/demo"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline decoration-accent/50 decoration-2 underline-offset-4 transition-colors hover:text-accent hover:decoration-accent"
+          >
+            Faça um teste sem compromisso →
+          </a>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <ShieldCheck className="size-4 text-accent" /> Dados protegidos
@@ -43,23 +52,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="relative perspective-[1800px]">
-          <div
-            aria-hidden
-            className="absolute -inset-8 rounded-[2rem] bg-accent/15 blur-3xl"
-          />
-          <div
-            className="relative transform-3d rotate-x-[4deg] rotate-y-[-10deg] rounded-[1.75rem] border border-border bg-card p-3 shadow-2xl transition-transform duration-500 ease-out hover:rotate-x-[2deg] hover:rotate-y-[-5deg]"
-          >
-            <img
-              src={heroSchedule}
-              alt="Grade horária acadêmica gerada automaticamente pelo OptiSched"
-              width={2994}
-              height={2236}
-              className="w-full rounded-xl border border-border/60"
-            />
-          </div>
-        </div>
+        <HeroBanner />
       </div>
     </section>
   );
