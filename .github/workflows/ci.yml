@@ -159,6 +159,8 @@ jobs:
       contents: read
       packages: read
     steps:
+      - uses: actions/checkout@v4
+
       # The EC2 security group only allows SSH from a fixed IP (the
       # developer's own), not from GitHub-hosted runners (dynamic IPs) — so
       # we open a scoped, temporary ingress rule for just this runner's IP,
@@ -182,15 +184,33 @@ jobs:
             --protocol tcp --port 22 \
             --cidr "${{ steps.ip.outputs.cidr }}"
 
+      - name: Sync docker-compose.prod.yml to EC2
+        # The deploy step below never updated this file on the host — it
+        # only ran `docker compose pull`/`up -d` against whatever copy was
+        # already sitting in ~/OptiSched, placed there manually during the
+        # original Parte B setup and never touched again. That stale copy
+        # still had `build:` sections for api/optimizer (pre-dating the
+        # GHCR image-based setup), and `docker compose pull` skips build-only
+        # services entirely — reported as "Skipped: No image to be pulled",
+        # not as an error. That's why yesterday's GHCR login fix (login
+        # succeeded) didn't change anything: pull was never even attempting
+        # those two images, auth or no auth. This step keeps the host's copy
+        # byte-for-byte in sync with the repo on every deploy.
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "~/OptiSched"
+          overwrite: true
+
       - name: Pull new images and restart stack on EC2
         # The EC2 host's own Docker daemon needs its own GHCR login to pull
         # our private optisched-api/optisched-optimizer images — the
         # docker/login-action in build-and-push only authenticates the
         # ephemeral GitHub-hosted runner, not this separate host. Without
-        # it, `docker compose pull` silently fails auth on those two images
-        # and falls back to whatever is already cached locally (reported as
-        # "Skipped: No image to be pulled", not as an error), leaving the
-        # container on stale code even though the job reports success.
+        # it, `docker compose pull` fails auth on those two images.
         # GITHUB_TOKEN already has packages:read on this repo's own
         # packages, so no extra secret/PAT is needed and this can't expire.
         uses: appleboy/ssh-action@v1
