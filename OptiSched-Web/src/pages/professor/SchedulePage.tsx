@@ -38,6 +38,7 @@ export function SchedulePage() {
   const { user } = useAuth();
   const institutionId = user?.institutionId ?? null;
   const professorId = user?.professorId ?? null;
+  const isSchool = user?.institutionType === "SCHOOL";
 
   const { data: activeSchedule, isLoading: isLoadingSchedule } = useQuery({
     queryKey: ["schedule-active", institutionId],
@@ -108,7 +109,9 @@ export function SchedulePage() {
       </div>
 
       {!isLoadingSchedule && activeSchedule && !isLoadingEntries && myEntries.length > 0 && !canExport && (
-        <p className="mt-2 text-sm text-muted-foreground">{t("exportDateNotice")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t(isSchool ? "exportDateNoticeSchool" : "exportDateNotice")}
+        </p>
       )}
 
       <div className="mt-6">

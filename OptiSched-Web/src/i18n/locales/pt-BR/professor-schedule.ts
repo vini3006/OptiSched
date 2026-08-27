@@ -4,6 +4,8 @@ export default {
   exportButton: "Exportar para calendário (.ics)",
   exportDateNotice:
     "As datas de início e fim do semestre ainda não foram configuradas — fale com a coordenação da sua instituição para exportar seu calendário.",
+  exportDateNoticeSchool:
+    "As datas de início e fim do ano letivo ainda não foram configuradas — fale com a coordenação da sua instituição para exportar seu calendário.",
   noActiveSchedule: "Nenhuma grade ativa no momento. Fale com a coordenação da sua instituição.",
   noEntries: "Você não tem aulas alocadas nessa grade.",
   entryCourseSection: "{{course}} · Turma {{section}}",

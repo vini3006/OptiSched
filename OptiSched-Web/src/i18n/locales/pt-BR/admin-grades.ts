@@ -124,6 +124,8 @@ export default {
   entryLine: "{{day}} {{time}} · {{professor}} · Sala {{classroom}}",
   onlyInCurrentNotice_one: "{{count}} disciplina só existe na grade atual (não está mais no catálogo do semestre).",
   onlyInCurrentNotice_other: "{{count}} disciplinas só existem na grade atual (não estão mais no catálogo do semestre).",
+  onlyInCurrentNoticeSchool_one: "{{count}} disciplina só existe na grade atual (não está mais no currículo da série).",
+  onlyInCurrentNoticeSchool_other: "{{count}} disciplinas só existem na grade atual (não estão mais no currículo da série).",
   onlyInOtherNotice_one: "{{count}} disciplina só existe na outra versão.",
   onlyInOtherNotice_other: "{{count}} disciplinas só existem na outra versão.",
 

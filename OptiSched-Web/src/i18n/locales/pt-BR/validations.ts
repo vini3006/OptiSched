@@ -12,7 +12,11 @@ export default {
     totalSemestersRequired: "Informe o total de semestres do curso.",
   },
   generateSchedule: {
-    semesterRequired: "Selecione um semestre.",
+    // Neutral on purpose: this field is labeled "Semestre" for universities
+    // and "Ano Letivo" for schools (see GradesPage.tsx) — the Zod schema
+    // that uses this message is built once at module scope, so it can't
+    // branch on institution type itself.
+    semesterRequired: "Selecione o período letivo acima.",
   },
   forgotPassword: {
     emailRequired: "Informe seu e-mail.",

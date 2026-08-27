@@ -1207,7 +1207,9 @@ function GradesContent({ institutionId }: { institutionId: number }) {
 
               {comparison.onlyInA.length > 0 && (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  {t("onlyInCurrentNotice", { count: comparison.onlyInA.length })}
+                  {t(isSchool ? "onlyInCurrentNoticeSchool" : "onlyInCurrentNotice", {
+                    count: comparison.onlyInA.length,
+                  })}
                 </p>
               )}
               {comparison.onlyInB.length > 0 && (
