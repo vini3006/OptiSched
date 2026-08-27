@@ -100,11 +100,20 @@ O OptiSched agora atende universidades e escolas, mas a landing page ainda vende
 
 ## Fase 6 — Frontend: tela de escolha + client da API
 
-- [ ] `OptiSched-Web/src/routes/demo.tsx` (novo): rota pública, sem `beforeLoad` (mesmo padrão de `index.tsx`/`login.tsx`), 2 cards (Universidade/Escola) cada um com botão "Começar".
-- [ ] `OptiSched-Web/src/api/demo.ts` (novo): `createDemoInstitution(type: "UNIVERSITY" | "SCHOOL"): Promise<AuthUser>`, `POST /demo/institutions`, espelha `api/auth.ts`'s `login()`.
-- [ ] `OptiSched-Web/src/types/Auth.ts`: `AuthUser` ganha `isDemo: boolean`.
-- [ ] No sucesso: `queryClient.setQueryData(AUTH_QUERY_KEY, authUser)` (mesmo padrão de `AuthContext.tsx`'s `loginMutation.onSuccess`) + `navigate({ to: "/admin" })` — o guard de `admin.tsx` não muda nada, já que só olha `user.role === "ADMIN"` e o cookie já veio setado do backend.
-- [ ] Novo namespace i18n `src/i18n/locales/pt-BR/demo.ts`, registrado em `i18n.ts` (a tela de escolha e o banner "modo demo" da Fase 7 vivem dentro do app já i18n'zado, diferente da landing).
+## Fase 6 — Frontend: tela de escolha + client da API — **DONE (2026-08-26)**
+
+- [x] `OptiSched-Web/src/routes/demo.tsx` (novo, thin route → `pages/DemoPage.tsx`, mesmo padrão de `login.tsx`), rota pública sem `beforeLoad`. `routeTree.gen.ts` regenerado (roda a task `dev`/`build` do Vite pra sincronizar — não é gerado por `tsc` sozinho).
+- [x] `OptiSched-Web/src/api/demo.ts` (novo): `createDemoInstitution(type)`.
+- [x] `OptiSched-Web/src/types/Auth.ts`: `AuthUser.isDemo: boolean` adicionado.
+- [x] `pages/DemoPage.tsx` (novo) + `i18n/locales/pt-BR/demo.ts` registrado em `i18n.ts`: 2 cards (Universidade/Escola, ícones `GraduationCap`/`School`) com botão "Testar como X", estado de loading por card, mensagem de erro genérica.
+- [x] `npx tsc -b --force` e `npm run lint` limpos.
+- [x] Testado ao vivo de ponta a ponta (frontend real + API real via Docker, rebuild do container após os fixes de backend): os dois tipos (Universidade e Escola) criam a instituição, autenticam e carregam o admin já populado — cursos/ofertas (universidade) e séries/turmas/currículo (escola) conferidos na UI.
+
+**2 bugs reais encontrados e corrigidos só rodando de ponta a ponta (nenhum pego por `tsc`/`lint`/testes automatizados):**
+1. **Sala de laboratório pequena demais pro dado semeado (bug da Fase 2, só aparece ao gerar grade de verdade):** `DemoSeedService.seedClassrooms` criava a sala `201` (LABORATORY) com capacidade 25, mas as ofertas universitárias que exigem laboratório (`ALG101`/`BD101`) usam `expectedStudents=35` — o otimizador rejeitava corretamente como inviável ("no classroom of that type is big enough"). Capacidade da sala 201 subida pra 40. Nenhum teste automatizado pega isso porque os testes de seed só contam linhas, nunca verificam se o resultado é *solúvel* — só apareceu tentando gerar uma grade de verdade na UI.
+2. **`navigate({ to: "/admin" })` dentro do `onSuccess` do `useMutation` nunca disparava a navegação de fato**, mesmo com o backend respondendo 200 e a sessão/cookie corretos (confirmado via `fetch('/auth/me')` direto no console — usuário autenticado, `isDemo:true`, mas a UI ficava travada em `/demo`). Corrigido trocando pra `await createDemoMutation.mutateAsync(type)` + `await navigate(...)` dentro do próprio handler de clique — o padrão exato já usado e comprovado em `LoginForm.tsx` — em vez de depender do callback `onSuccess` do `useMutation`. Só foi pego testando o clique de verdade no navegador; nenhum erro apareceu no console nem no `tsc`/lint.
+
+**Nota sobre a sessão de teste:** a automação de clique (`claude-in-chrome`) mostrou instabilidade real nesta sessão — descobriu-se que as coordenadas de pixel da screenshot não batiam com o espaço de coordenadas usado pelos cliques (`elementFromPoint` nas coordenadas "visuais" batia em elementos errados), e alguns cliques via `find`+`ref` em botões Base UI simplesmente não disparavam o evento. `element.click()` via JS foi o método mais confiável quando cliques via automação falhavam repetidamente — mas só serve pra confirmar que o *código* funciona quando o evento realmente dispara, não substitui um teste de clique real do usuário.
 
 ## Fase 7 — Frontend: aviso "modo demonstração" dentro do admin
 

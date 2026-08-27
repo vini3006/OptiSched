@@ -10,6 +10,7 @@ export type AuthUser = {
   institutionId: number | null;
   professorId: number | null;
   institutionType: InstitutionType | null;
+  isDemo: boolean;
 };
 
 export type LoginCredentials = {

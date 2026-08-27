@@ -18,6 +18,7 @@ import csvImportExport from "@/i18n/locales/pt-BR/csv-import-export";
 import weeklyScheduleGrid from "@/i18n/locales/pt-BR/weekly-schedule-grid";
 import appNavBar from "@/i18n/locales/pt-BR/app-nav-bar";
 import validations from "@/i18n/locales/pt-BR/validations";
+import demo from "@/i18n/locales/pt-BR/demo";
 
 void i18next.use(initReactI18next).init({
   lng: "pt-BR",
@@ -40,6 +41,7 @@ void i18next.use(initReactI18next).init({
     "weeklyScheduleGrid",
     "appNavBar",
     "validations",
+    "demo",
   ],
   defaultNS: "common",
   resources: {
@@ -61,6 +63,7 @@ void i18next.use(initReactI18next).init({
       weeklyScheduleGrid,
       appNavBar,
       validations,
+      demo,
     },
   },
   interpolation: {

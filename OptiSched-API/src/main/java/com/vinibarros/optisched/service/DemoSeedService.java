@@ -165,7 +165,12 @@ public class DemoSeedService {
     private void seedClassrooms(Long institutionId) {
         classroomService.create(new ClassroomRequest("101", 40, RoomType.COMMON, "Bloco A"), institutionId);
         classroomService.create(new ClassroomRequest("102", 35, RoomType.COMMON, "Bloco A"), institutionId);
-        classroomService.create(new ClassroomRequest("201", 25, RoomType.LABORATORY, "Bloco B"), institutionId);
+        // Capacity must cover the largest expectedStudents used by any
+        // LABORATORY-requiring offering below (university offerings use 35)
+        // — a smaller lab makes the solver correctly reject the seed as
+        // infeasible, caught only by actually generating a schedule live,
+        // not by the row-count-only seed tests.
+        classroomService.create(new ClassroomRequest("201", 40, RoomType.LABORATORY, "Bloco B"), institutionId);
     }
 
     /**
