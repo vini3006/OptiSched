@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
-import { navLinks } from "@/constants/landing";
+import { navLinks, whatsappLink } from "@/constants/landing";
 
 type MobileMenuProps = {
   open: boolean;
@@ -29,24 +29,33 @@ export function MobileMenu({
           </a>
         ))}
 
-        <div className="mt-3 flex gap-3">
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+              render={<Link to="/login" />}
+            >
+              Login
+            </Button>
+
+            <Button
+              className="btn-gold flex-1"
+              onClick={onClose}
+              render={<a href={whatsappLink} target="_blank" rel="noopener noreferrer" />}
+            >
+              Solicitar Demonstração
+            </Button>
+          </div>
 
           <Button
             variant="outline"
-            className="flex-1"
             onClick={onClose}
-            render={<Link to="/login" />}
+            render={<Link to="/demo" />}
           >
-            Login
+            Testar Grátis
           </Button>
-
-          <Button
-            className="btn-gold flex-1"
-            onClick={onClose}
-          >
-            Assinar
-          </Button>
-
         </div>
       </nav>
     </div>

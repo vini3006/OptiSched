@@ -9,12 +9,12 @@ const highlights = [
   {
     icon: Cpu,
     title: "Geração automática",
-    text: "Você cadastra os dados uma vez; o motor de otimização monta a grade inteira do semestre em segundos.",
+    text: "Você cadastra os dados uma vez; o motor de otimização monta a grade inteira do período letivo em segundos.",
   },
   {
     icon: Eye,
     title: "Visibilidade total",
-    text: "Cada alocação fica registrada e rastreável, com histórico de todas as grades geradas por semestre.",
+    text: "Cada alocação fica registrada e rastreável, com histórico de todas as grades já geradas.",
   },
 ];
 
@@ -33,16 +33,18 @@ export function AboutSection() {
           </div>
           <div className="space-y-5 text-muted-foreground">
             <p className="leading-relaxed">
-              Professores alocados em horários que não cursam, salas sem capacidade
-              suficiente, disciplinas do mesmo período colidindo entre si. Montar a grade
-              de um semestre à mão é um processo lento e sujeito a erro em qualquer
-              instituição de ensino.
+              Montar a grade horária de uma instituição de ensino é um problema clássico:
+              professores acabam alocados em horários em que não estão disponíveis, salas
+              ficam sem capacidade suficiente e aulas obrigatórias acabam se sobrepondo no
+              mesmo horário. Feito à mão, é um processo lento e sujeito a erro — e o erro
+              geralmente só aparece depois que as aulas já começaram.
             </p>
             <p className="leading-relaxed">
-              O OptiSched resolve isso com um motor de otimização matemática: você
+              O OptiSched resolve esse problema com um motor de otimização matemática: você
               cadastra professores, disciplinas, salas e disponibilidades, e o sistema
-              gera a grade completa do semestre, já validada contra todas as regras
-              acadêmicas e institucionais.
+              gera a grade completa do período letivo, já validada contra todas as regras
+              acadêmicas e institucionais — seja o currículo organizado por curso e
+              semestre, como numa universidade, ou por série e turma, como numa escola.
             </p>
             <div className="space-y-5 border-t border-border pt-6">
               {highlights.map((h) => (

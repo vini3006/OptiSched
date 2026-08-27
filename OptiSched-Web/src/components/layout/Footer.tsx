@@ -33,12 +33,12 @@ export function Footer() {
             <p className="text-sm font-semibold">Legal</p>
             <ul className="mt-3 space-y-2 text-sm text-primary-foreground/70">
               <li>
-                <a href="#precos" className="transition-colors hover:text-accent"> 
-                  Termos de uso 
+                <a href="#inicio" className="transition-colors hover:text-accent">
+                  Termos de uso
                 </a>
               </li>
               <li>
-                <a href="#precos" className="transition-colors hover:text-accent">
+                <a href="#inicio" className="transition-colors hover:text-accent">
                   Política de privacidade
                 </a>
               </li>

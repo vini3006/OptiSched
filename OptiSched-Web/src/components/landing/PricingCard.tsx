@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { PricingPlan } from "@/constants/landing";
 import { whatsappLink } from "@/constants/landing";
 
@@ -27,6 +28,12 @@ export function PricingCard({ plan }: PricingCardProps) {
       >
         Solicitar Demonstração
       </a>
+      <Link
+        to="/demo"
+        className="mt-3 text-center text-sm font-medium text-primary underline decoration-accent/50 decoration-2 underline-offset-4 transition-colors hover:text-accent hover:decoration-accent"
+      >
+        Ou teste grátis agora, sem cadastro →
+      </Link>
     </article>
   );
 }

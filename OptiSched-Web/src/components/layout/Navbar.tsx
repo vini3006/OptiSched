@@ -43,6 +43,10 @@ export function Navbar() {
             Login
           </Button>
 
+          <Button variant="outline" render={<Link to="/demo" />}>
+            Testar Grátis
+          </Button>
+
           <a
             href={whatsappLink}
             target="_blank"
