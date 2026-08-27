@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ShieldCheck, Sparkles } from "lucide-react";
 
 import { HeroBanner } from "@/components/landing/HeroBanner";
@@ -16,9 +17,10 @@ export function HeroSection() {
             <span className="text-gold-gradient">inteligência</span>.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            O OptiSched monta a grade horária da sua instituição automaticamente,
-            respeitando qualificação de professores, disponibilidade e capacidade das
-            salas — eliminando conflitos que hoje levam dias para resolver manualmente.
+            O OptiSched monta a grade horária da sua universidade ou escola
+            automaticamente, respeitando qualificação de professores, disponibilidade e
+            capacidade das salas — eliminando conflitos que hoje levam dias para resolver
+            manualmente.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
@@ -34,15 +36,6 @@ export function HeroSection() {
               Saiba Mais
             </a>
           </div>
-          {/* Plain <a>, not a router Link — /demo doesn't exist as a route
-              yet (lands in a later phase of docs/demo-sandbox-plan.md's
-              Fase 6), same as the two CTAs above which are anchor links too. */}
-          <a
-            href="/demo"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline decoration-accent/50 decoration-2 underline-offset-4 transition-colors hover:text-accent hover:decoration-accent"
-          >
-            Faça um teste sem compromisso →
-          </a>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <ShieldCheck className="size-4 text-accent" /> Dados protegidos
@@ -52,7 +45,15 @@ export function HeroSection() {
           </div>
         </div>
 
-        <HeroBanner />
+        <div className="flex flex-col gap-6">
+          <HeroBanner />
+          <Link
+            to="/demo"
+            className="btn-gold w-full rounded-2xl px-10 py-4 text-center text-base font-bold sm:py-5 sm:text-lg"
+          >
+            Testar agora →
+          </Link>
+        </div>
       </div>
     </section>
   );
