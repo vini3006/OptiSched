@@ -124,20 +124,23 @@ O OptiSched agora atende universidades e escolas, mas a landing page ainda vende
 - [x] `DELETE /demo/institutions/{id}` de autolimpeza imediata **não implementado** — mantido como nice-to-have não bloqueante, conforme o próprio plano já previa; o TTL de 2h + `DemoCleanupJob` (Fase 4) já cobre a limpeza.
 - [x] `npx tsc -b --force` e `npm run lint` limpos. Testado ao vivo contra o backend real: banner aparece com a instituição demo (`Demo Escola 64d351eb` da Fase 6), clique em "Sair da demonstração" desloga de verdade (confirmado via `GET /auth/me` retornando 401 depois) e redireciona pra `/`, não `/login`.
 
-## Fase 8 — Documentação (este arquivo + comando)
+## Fase 8 — Documentação (este arquivo + comando) — **DONE**
 
 - [x] `docs/demo-sandbox-plan.md` — este arquivo.
-- [ ] `docs/turma-scoped-generation-plan.md`: adicionar uma linha logo após o marcador "Próxima fase" (linhas 34-38) apontando pra este arquivo — não apagar o texto original.
-- [ ] `.claude/commands/demo-plan.md` (mesmo template de `.claude/commands/refactor-school.md`): frontmatter `description:`, corpo com fases resumidas, regras numeradas (uma fase por vez, reler arquivos antes de editar, marcar checkbox + rodar verificação a cada item, resumo curto ao final) — **e uma regra nova específica** que os outros comandos não têm: "não fazer deploy da Fase 1 (endpoint público) sem a Fase 3 (guarda-corpos do otimizador) já mergeada — produção está no ar hoje, ao contrário de quando os planos anteriores foram escritos."
+- [x] `docs/turma-scoped-generation-plan.md`: linha "Resolvido em `docs/demo-sandbox-plan.md`" já presente logo após o marcador "Próxima fase" (linha 40), apontando pra este arquivo — texto original preservado.
+- [x] `.claude/commands/demo-plan.md` já existente, mesmo template de `refactor-school.md`: frontmatter `description:`, corpo com as 8 fases resumidas, regras numeradas, e a regra específica sobre não fazer deploy da Fase 1 sem a Fase 3 já mergeada.
+- [x] Conferido 2026-08-26, após as Fases 1-7 estarem todas implementadas e commitadas: os dois artefatos foram criados na sessão de planejamento original (2026-08-21, commit `aa5e0c9`) e continuam batendo exatamente com o que foi de fato construído — nenhuma correção necessária. Só faltava marcar estas checkboxes.
 
-## Riscos mapeados
+**Plano completo — todas as 8 fases feitas e commitadas.** Backend (Fases 1-4): commits `dd17f96`, `edbc841`, `5359389`, `4c37d3a`. Frontend (Fases 5-7): commits `390dbcc`, `fa3cd03`, `28a782d`.
 
-- **DoS no otimizador**: já endereçado como Fase 3, não opcional.
-- **Colisão de nome/slug**: nome da instituição demo precisa de sufixo único por criação, ou o segundo clique de cada tipo quebra.
-- **CNPJ vazio**: mandar `null`, nunca `""`.
-- **Sem captcha/proteção anti-bot**: o rate limit de 3/min/IP ajuda contra abuso não-distribuído; risco aceito pro v1, documentar como limitação conhecida.
-- **`SecurityConfig` permitAll**: escopar exatamente a `POST /demo/institutions`, não `/demo/**`, pra um futuro `DELETE` de autolimpeza continuar exigindo autenticação.
-- **Latência do seed síncrono**: se o dataset de exemplo crescer além do estimado, o tempo de resposta do endpoint público cresce junto — medir na Fase 2.
+## Riscos mapeados — **todos conferidos 2026-08-26, depois de tudo implementado**
+
+- **DoS no otimizador**: ✅ coberto — `DemoGenerationGuardrail` (Fase 3) trava `solverTimeLimitSeconds` em 15s e limita a 5 gerações/instituição via Redis. Testado ao vivo (a geração de Universidade chegou até o otimizador normalmente, dentro do teto) e por 6 testes automatizados dedicados.
+- **Colisão de nome/slug**: ✅ coberto — nome leva sufixo `UUID` de 8 chars, slug é um `UUID` completo. Testado ao vivo: múltiplas instituições demo criadas em sequência (`Demo Universidade 49e9e57e`, `Demo Escola 64d351eb`, etc.) sem colisão.
+- ~~**CNPJ vazio**: mandar `null`, nunca `""`~~ — **risco original ficou obsoleto**: descobriu-se na Fase 1 que a coluna `cnpj` é `NOT NULL` no banco, então nem `null` funcionava. Resolvido de forma diferente do previsto: `DemoService.uniqueDemoCnpj()` gera um valor sintético (`"DM"` + 12 dígitos), nunca `null` nem `""`, checado contra `existsByCnpj` antes de usar.
+- **Sem captcha/proteção anti-bot**: ⚠️ risco aceito, como planejado — rate limit de 3/min/IP (`RateLimitingFilter`) é a única proteção; sem captcha. Limitação conhecida e documentada, não bloqueante pro v1.
+- **`SecurityConfig` permitAll**: ✅ coberto — `.requestMatchers(HttpMethod.POST, "/demo/institutions").permitAll()`, escopado exatamente ao método+path, confirmado no código (`SecurityConfig.java`).
+- **Latência do seed síncrono**: ✅ medido agora (nunca tinha sido medido na Fase 2 como o plano original previa) — `curl` local contra o container real: **~2.9s** por criação, tanto Universidade quanto Escola. Isso é em localhost com o stack Docker inteiro na mesma máquina; a EC2 de produção (1 vCPU compartilhada) deve ser mais lenta, mas a ordem de grandeza (poucos segundos, não dezenas) é aceitável pra um botão "faça um teste" — não seria um problema de timeout, só uma espera perceptível. Vale reconferir uma vez em produção antes de anunciar a landing publicamente.
 
 ## Verificação
 
