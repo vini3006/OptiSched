@@ -155,6 +155,9 @@ jobs:
     name: Deploy to EC2
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       # The EC2 security group only allows SSH from a fixed IP (the
       # developer's own), not from GitHub-hosted runners (dynamic IPs) — so
@@ -180,12 +183,27 @@ jobs:
             --cidr "${{ steps.ip.outputs.cidr }}"
 
       - name: Pull new images and restart stack on EC2
+        # The EC2 host's own Docker daemon needs its own GHCR login to pull
+        # our private optisched-api/optisched-optimizer images — the
+        # docker/login-action in build-and-push only authenticates the
+        # ephemeral GitHub-hosted runner, not this separate host. Without
+        # it, `docker compose pull` silently fails auth on those two images
+        # and falls back to whatever is already cached locally (reported as
+        # "Skipped: No image to be pulled", not as an error), leaving the
+        # container on stale code even though the job reports success.
+        # GITHUB_TOKEN already has packages:read on this repo's own
+        # packages, so no extra secret/PAT is needed and this can't expire.
         uses: appleboy/ssh-action@v1
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GHCR_TOKEN,GHCR_USER
           script: |
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             cd ~/OptiSched
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
