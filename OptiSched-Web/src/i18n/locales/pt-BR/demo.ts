@@ -15,4 +15,11 @@ export default {
   creating: "Preparando...",
   error: "Não foi possível criar a instituição de demonstração. Tente novamente em instantes.",
   backToSite: "Voltar para o site",
+
+  banner: {
+    message:
+      "Você está numa instituição de demonstração com dados de exemplo. Ela expira sozinha em até 2 horas.",
+    exit: "Sair da demonstração",
+    exiting: "Saindo...",
+  },
 } as const;

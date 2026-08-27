@@ -1,9 +1,13 @@
 import { Outlet } from "@tanstack/react-router";
 
 import { AdminNavBar } from "@/components/layout/AdminNavBar";
+import { DemoModeBanner } from "@/components/layout/DemoModeBanner";
 import { AdminInstitutionProvider } from "@/contexts/AdminInstitutionContext";
+import { useAuth } from "@/hooks/UseAuth";
 
 export function AdminLayout() {
+  const { user } = useAuth();
+
   return (
     <AdminInstitutionProvider>
       <div className="min-h-screen">
@@ -14,6 +18,7 @@ export function AdminLayout() {
           Pular para o conteúdo
         </a>
         <AdminNavBar />
+        {user?.isDemo && <DemoModeBanner />}
         <main id="main-content" className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <Outlet />
         </main>

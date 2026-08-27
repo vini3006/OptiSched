@@ -117,8 +117,12 @@ O OptiSched agora atende universidades e escolas, mas a landing page ainda vende
 
 ## Fase 7 — Frontend: aviso "modo demonstração" dentro do admin
 
-- [ ] `AdminLayout.tsx`: banner condicional (`user.isDemo`) inserido entre `<AdminNavBar />` e `<main>` — mensagem + "Sair da demonstração".
-- [ ] "Sair da demonstração" reaproveita `logout()` do `AuthContext`, mas redireciona pra `/` em vez do destino padrão de logout; opcionalmente chama um `DELETE /demo/institutions/{id}` novo (autolimpeza imediata em vez de esperar as 2h — nice-to-have, não bloqueia o TTL).
+## Fase 7 — Frontend: aviso "modo demonstração" dentro do admin — **DONE (2026-08-26)**
+
+- [x] `components/layout/DemoModeBanner.tsx` (novo): banner condicional (`user?.isDemo`) inserido em `AdminLayout.tsx` entre `<AdminNavBar />` e `<main>` — ícone `Info`, mensagem + botão "Sair da demonstração". Novo bloco `banner` no namespace i18n `demo`.
+- [x] "Sair da demonstração" reaproveita `logout()` do `AuthContext`, mas redireciona pra `/` em vez de `/login` (destino padrão do `AppNavBar`).
+- [x] `DELETE /demo/institutions/{id}` de autolimpeza imediata **não implementado** — mantido como nice-to-have não bloqueante, conforme o próprio plano já previa; o TTL de 2h + `DemoCleanupJob` (Fase 4) já cobre a limpeza.
+- [x] `npx tsc -b --force` e `npm run lint` limpos. Testado ao vivo contra o backend real: banner aparece com a instituição demo (`Demo Escola 64d351eb` da Fase 6), clique em "Sair da demonstração" desloga de verdade (confirmado via `GET /auth/me` retornando 401 depois) e redireciona pra `/`, não `/login`.
 
 ## Fase 8 — Documentação (este arquivo + comando)
 
