@@ -89,13 +89,20 @@ public class DemoSeedService {
 
     public void seedUniversity(Long institutionId) {
         Long semesterId = seedCurrentSemester(institutionId);
+        // Subject.workload is the WEEKLY number of classes (h_o in the
+        // optimizer model, see OptimizationModel.md), not a total course
+        // hour count — values here previously used realistic Brazilian
+        // "carga horária total" numbers (60h, 80h...), which the solver
+        // read as "60 classes/week" against only 20 time slots seeded
+        // below (4 periods x 5 weekdays), making every University-mode
+        // demo generation provably infeasible 100% of the time.
         List<Long> subjectIds = seedSubjects(institutionId, List.of(
-                new SubjectSeed("ALG101", "Algoritmos e Estrutura de Dados", 60, RoomType.LABORATORY),
-                new SubjectSeed("BD101", "Banco de Dados", 60, RoomType.LABORATORY),
-                new SubjectSeed("CAL101", "Cálculo I", 80, RoomType.COMMON),
-                new SubjectSeed("ENG101", "Engenharia de Software", 60, RoomType.COMMON),
-                new SubjectSeed("RED101", "Redes de Computadores", 40, RoomType.LABORATORY),
-                new SubjectSeed("SO101", "Sistemas Operacionais", 60, RoomType.COMMON)
+                new SubjectSeed("ALG101", "Algoritmos e Estrutura de Dados", 4, RoomType.LABORATORY),
+                new SubjectSeed("BD101", "Banco de Dados", 4, RoomType.LABORATORY),
+                new SubjectSeed("CAL101", "Cálculo I", 6, RoomType.COMMON),
+                new SubjectSeed("ENG101", "Engenharia de Software", 4, RoomType.COMMON),
+                new SubjectSeed("RED101", "Redes de Computadores", 3, RoomType.LABORATORY),
+                new SubjectSeed("SO101", "Sistemas Operacionais", 4, RoomType.COMMON)
         ));
         seedClassrooms(institutionId);
         List<Long> timeSlotIds = seedMorningTimeSlots(institutionId);
